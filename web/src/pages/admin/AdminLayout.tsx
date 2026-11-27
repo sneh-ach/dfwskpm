@@ -22,6 +22,7 @@ import {
 } from 'lucide-react'
 import { useAuthStore } from '../../store/authStore'
 import { canManageFamilies, isAdmin, roleLabel } from '../../lib/permissions'
+import { syncAdminDirectoryFromSupabase } from '../../lib/supabaseDirectory'
 import { cn } from '../../lib/utils'
 import { Button } from '../../components/ui/Button'
 
@@ -76,6 +77,10 @@ export function AdminLayout() {
       document.body.style.overflow = ''
     }
   }, [menuOpen])
+
+  useEffect(() => {
+    void syncAdminDirectoryFromSupabase()
+  }, [])
 
   return (
     <div className="min-h-screen bg-night text-mist">

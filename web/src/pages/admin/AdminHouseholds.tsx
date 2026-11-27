@@ -1,4 +1,4 @@
-import { useMemo, useState, type FormEvent } from 'react'
+import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { ArrowLeft, Plus, Receipt, Trash2, Users } from 'lucide-react'
 import { useContentStore } from '../../store/contentStore'
@@ -7,6 +7,13 @@ import type { Household } from '../../types'
 import { Button } from '../../components/ui/Button'
 import { Avatar } from '../../components/ui/Avatar'
 import { formatDate, uid } from '../../lib/utils'
+import {
+  deleteHouseholdInSupabase,
+  markHouseholdReviewedInSupabase,
+  pushHouseholdToSupabase,
+  syncHouseholdsFromSupabase,
+} from '../../lib/supabaseHouseholds'
+import { syncAdminDirectoryFromSupabase } from '../../lib/supabaseDirectory'
 
 export function AdminHouseholds() {
   const households = useContentStore((s) => s.households)
@@ -22,6 +29,17 @@ export function AdminHouseholds() {
   const markHouseholdReviewed = useContentStore((s) => s.markHouseholdReviewed)
   const users = useAuthStore((s) => s.users)
   const needsReviewCount = households.filter((h) => h.needsReview).length
+  const [syncing, setSyncing] = useState(false)
+
+  useEffect(() => {
+    void syncAdminDirectoryFromSupabase()
+  }, [])
+
+  async function refreshFromServer() {
+    setSyncing(true)
+    await syncAdminDirectoryFromSupabase()
+    setSyncing(false)
+  }
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -59,10 +77,11 @@ export function AdminHouseholds() {
     return { families: households.length, active: active.length, people, donated }
   }, [households])
 
-  function onAddHousehold(e: FormEvent<HTMLFormElement>) {
+  async function onAddHousehold(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
     const fd = new FormData(e.currentTarget)
-    const id = upsertHousehold({
+    const draft: Household = {
+      id: uid('hh'),
       familyName: String(fd.get('familyName') || ''),
       primaryName: String(fd.get('primaryName') || ''),
       email: String(fd.get('email') || ''),
@@ -85,7 +104,12 @@ export function AdminHouseholds() {
       status: 'active',
       source: 'admin',
       needsReview: false,
-    })
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    }
+    const pushed = await pushHouseholdToSupabase(draft)
+    const id = pushed.id || upsertHousehold(draft)
+    if (pushed.id) await syncHouseholdsFromSupabase()
     setSelectedId(id)
     setAdding(false)
   }
@@ -105,7 +129,9 @@ export function AdminHouseholds() {
 
   function saveHousehold(patch: Partial<Household>) {
     if (!selected) return
-    upsertHousehold({ ...selected, ...patch })
+    const next = { ...selected, ...patch }
+    upsertHousehold(next)
+    void pushHouseholdToSupabase(next)
   }
 
   const showDetailMobile = Boolean(selectedId)
@@ -119,9 +145,19 @@ export function AdminHouseholds() {
             Family directory — addresses, members, and donation history in one place.
           </p>
         </div>
-        <Button className="w-full sm:w-auto" onClick={() => setAdding(true)}>
-          <Plus className="h-4 w-4" /> Add family
-        </Button>
+        <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+          <Button
+            variant="ghost"
+            className="w-full sm:w-auto"
+            disabled={syncing}
+            onClick={() => void refreshFromServer()}
+          >
+            {syncing ? 'Refreshing…' : 'Refresh'}
+          </Button>
+          <Button className="w-full sm:w-auto" onClick={() => setAdding(true)}>
+            <Plus className="h-4 w-4" /> Add family
+          </Button>
+        </div>
       </div>
 
       <div className={showDetailMobile ? 'mt-6 hidden gap-3 sm:grid-cols-2 xl:grid-cols-5 lg:grid' : 'mt-5 grid grid-cols-2 gap-2 sm:mt-6 sm:gap-3 xl:grid-cols-5'}>
@@ -261,7 +297,14 @@ export function AdminHouseholds() {
               </div>
               <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
                 {selected.needsReview && (
-                  <Button size="sm" className="col-span-2 justify-center sm:col-auto" onClick={() => markHouseholdReviewed(selected.id)}>
+                  <Button
+                    size="sm"
+                    className="col-span-2 justify-center sm:col-auto"
+                    onClick={() => {
+                      markHouseholdReviewed(selected.id)
+                      void markHouseholdReviewedInSupabase(selected.id)
+                    }}
+                  >
                     Mark reviewed
                   </Button>
                 )}
@@ -281,7 +324,9 @@ export function AdminHouseholds() {
                   className="justify-center"
                   onClick={() => {
                     if (confirm('Delete this household?')) {
-                      deleteHousehold(selected.id)
+                      const id = selected.id
+                      deleteHousehold(id)
+                      void deleteHouseholdInSupabase(id)
                       setSelectedId(null)
                     }
                   }}
