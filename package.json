@@ -1,0 +1,12 @@
+{
+  "name": "dfwskpm",
+  "private": true,
+  "engines": {
+    "node": "26.x"
+  },
+  "scripts": {
+    "dev": "npm run dev --prefix web",
+    "build": "npm run build --prefix web",
+    "preview": "npm run preview --prefix web"
+  }
+}

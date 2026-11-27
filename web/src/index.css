@@ -1,0 +1,172 @@
+@import "tailwindcss";
+
+@theme {
+  --font-display: "Cormorant Garamond", "Times New Roman", serif;
+  --font-sans: "Figtree", ui-sans-serif, system-ui, sans-serif;
+  /* Sacred titles — Noto Serif Devanagari reads clearest for Hindi/Nepali headings */
+  --font-deva: "Noto Serif Devanagari", "Tiro Devanagari Hindi", "Devanagari Sangam MN", serif;
+  --font-deva-serif: "Tiro Devanagari Hindi", "Noto Serif Devanagari", serif;
+
+  /* Temple palette — gold + yellow + deep navy (no red/teal) */
+  --color-night: #0f1724;
+  --color-ink: #172033;
+  --color-slate: #4a5568;
+  --color-mist: #e8eef6;
+  --color-paper: #f7f5f0;
+  --color-saffron: #e89720;
+  --color-gold: #c9a227;
+  --color-marigold: #f4c430;
+  --color-temple: #2a4a6e;
+  --color-lotus: #8b5e34;
+  --color-lotus-soft: #f5ebe0;
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    min-height: 100dvh;
+    font-family: var(--font-sans);
+    color: var(--color-ink);
+    background: #faf8f4;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    overflow-x: hidden;
+  }
+
+  img {
+    max-width: 100%;
+    height: auto;
+  }
+
+  ::selection {
+    background: rgba(232, 151, 32, 0.28);
+  }
+
+  /* Prevent iOS tap highlight flash on nav */
+  a,
+  button {
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
+@layer utilities {
+  .font-display {
+    font-family: var(--font-display);
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+
+  .font-deva {
+    font-family: var(--font-deva);
+    font-feature-settings: "kern" 1, "liga" 1, "locl" 1;
+    font-weight: 600;
+    line-height: 1.55;
+    letter-spacing: 0.03em;
+  }
+
+  /* Large scripture titles e.g. श्री तर्तम सागर */
+  .font-deva-display {
+    font-family: var(--font-deva);
+    font-feature-settings: "kern" 1, "liga" 1, "locl" 1;
+    font-weight: 700;
+    line-height: 1.35;
+    letter-spacing: 0.04em;
+  }
+
+  .font-deva-serif {
+    font-family: var(--font-deva-serif);
+    font-feature-settings: "kern" 1, "liga" 1;
+    font-weight: 400;
+    line-height: 1.9;
+    letter-spacing: 0.02em;
+  }
+
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  .temple-grid {
+    background-image:
+      linear-gradient(rgba(23, 32, 51, 0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(23, 32, 51, 0.04) 1px, transparent 1px);
+    background-size: 48px 48px;
+  }
+
+  .glow-ring {
+    box-shadow: 0 0 0 1px rgba(201, 162, 39, 0.28), 0 24px 60px rgba(15, 23, 36, 0.16);
+  }
+
+  /* Horizontal snap carousels — phone-first, laptop-friendly */
+  .snap-row {
+    scroll-snap-type: x mandatory;
+    scroll-padding-inline: 1rem;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  .snap-row::-webkit-scrollbar {
+    display: none;
+  }
+
+  .snap-item {
+    scroll-snap-align: start;
+    flex-shrink: 0;
+  }
+
+  /* Shared section rhythm */
+  .section-y {
+    padding-block: 2.75rem;
+  }
+
+  @media (min-width: 640px) {
+    .section-y {
+      padding-block: 3.5rem;
+    }
+  }
+
+  @media (min-width: 768px) {
+    .section-y {
+      padding-block: 4.5rem;
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .section-y {
+      padding-block: 5.5rem;
+    }
+  }
+
+  /* Shared admin form controls — touch-friendly on phone */
+  .admin-field {
+    width: 100%;
+    min-height: 2.75rem;
+    border-radius: 0.5rem;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(255, 255, 255, 0.04);
+    color: white;
+    padding: 0.7rem 0.85rem;
+    font-size: 16px; /* prevents iOS zoom on focus */
+    outline: none;
+  }
+
+  .admin-field:focus {
+    border-color: rgba(244, 196, 48, 0.55);
+  }
+
+  .admin-field option {
+    color: #172033;
+  }
+
+  textarea.admin-field {
+    min-height: 5rem;
+    resize: vertical;
+  }
+}
