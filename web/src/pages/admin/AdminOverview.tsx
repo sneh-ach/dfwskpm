@@ -19,6 +19,7 @@ import { useContentStore } from '../../store/contentStore'
 import { useAuthStore } from '../../store/authStore'
 import { canManageFamilies, isAdmin, roleLabel } from '../../lib/permissions'
 import { formatDate } from '../../lib/utils'
+import { effectiveInvoiceStatus } from '../../lib/activity'
 import { Avatar } from '../../components/ui/Avatar'
 
 export function AdminOverview() {
@@ -40,7 +41,10 @@ export function AdminOverview() {
   const manage = canManageFamilies(role)
 
   const needsReview = households.filter((h) => h.needsReview)
-  const openInvoices = invoices.filter((i) => i.status === 'open' || i.status === 'overdue')
+  const openInvoices = invoices.filter((i) => {
+    const s = effectiveInvoiceStatus(i)
+    return s === 'open' || s === 'overdue'
+  })
   const openAmount = openInvoices.reduce((s, i) => s + i.amount, 0)
   const openRequests = memberRequests.filter((r) => r.status === 'open')
   const unreadContact = contactMessages.filter((m) => !m.read)

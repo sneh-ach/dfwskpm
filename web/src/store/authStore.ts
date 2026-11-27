@@ -7,7 +7,7 @@ import { useContentStore } from './contentStore'
 import { isAdmin, isStaff } from '../lib/permissions'
 import { supabase, supabaseConfigured } from '../lib/supabase'
 import { ensureSessionUser, fetchProfile, profileToUser } from '../lib/supabaseAuth'
-import { hydrateHousehold } from '../lib/supabaseHouseholds'
+import { hydrateHousehold, pushHouseholdToSupabase } from '../lib/supabaseHouseholds'
 import { friendlyAuthError, normalizeEmail } from '../lib/authErrors'
 
 type AuthResult = { ok: boolean; error?: string }
@@ -416,23 +416,10 @@ export const useAuthStore = create<AuthState>()(
         }
         const hh = useContentStore.getState().households.find((h) => h.id === current.householdId)
         if (!hh) return { ok: false, error: 'Household not found.' }
-        useContentStore.getState().upsertHousehold({ ...hh, ...patch })
+        const next = { ...hh, ...patch, updatedAt: new Date().toISOString() }
+        useContentStore.getState().upsertHousehold(next)
         if (supabase) {
-          void supabase
-            .from('households')
-            .update({
-              family_name: patch.familyName ?? hh.familyName,
-              primary_name: patch.primaryName ?? hh.primaryName,
-              phone: patch.phone ?? hh.phone,
-              photo_url: patch.photo ?? hh.photo ?? null,
-              address_line1: patch.addressLine1 ?? hh.addressLine1,
-              address_line2: patch.addressLine2 ?? hh.addressLine2 ?? null,
-              city: patch.city ?? hh.city,
-              state: patch.state ?? hh.state,
-              zip: patch.zip ?? hh.zip,
-              updated_at: new Date().toISOString(),
-            })
-            .eq('id', current.householdId)
+          void pushHouseholdToSupabase(next)
         }
         if (patch.phone || patch.primaryName) {
           set((s) => ({

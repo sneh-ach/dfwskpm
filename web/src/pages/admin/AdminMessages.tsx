@@ -1,16 +1,25 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useContentStore } from '../../store/contentStore'
 import { Button } from '../../components/ui/Button'
 import { formatDate } from '../../lib/utils'
+import {
+  resolveMemberRequestInSupabase,
+  syncMemberRequestsFromSupabase,
+} from '../../lib/supabaseRequests'
+import { syncHouseholdsFromSupabase } from '../../lib/supabaseHouseholds'
 
 export function AdminMessages() {
   const messages = useContentStore((s) => s.contactMessages)
   const requests = useContentStore((s) => s.memberRequests) || []
   const households = useContentStore((s) => s.households)
   const markMessageRead = useContentStore((s) => s.markMessageRead)
-  const resolveMemberRequest = useContentStore((s) => s.resolveMemberRequest)
   const [tab, setTab] = useState<'requests' | 'contact'>('requests')
+
+  useEffect(() => {
+    void syncMemberRequestsFromSupabase()
+    void syncHouseholdsFromSupabase()
+  }, [])
 
   const openRequests = useMemo(() => requests.filter((r) => r.status === 'open'), [requests])
   const unreadContact = useMemo(() => messages.filter((m) => !m.read), [messages])
@@ -78,7 +87,7 @@ export function AdminMessages() {
                         </Link>
                       )}
                       {req.status === 'open' && (
-                        <Button size="sm" onClick={() => resolveMemberRequest(req.id)}>
+                        <Button size="sm" onClick={() => void resolveMemberRequestInSupabase(req.id)}>
                           Mark resolved
                         </Button>
                       )}

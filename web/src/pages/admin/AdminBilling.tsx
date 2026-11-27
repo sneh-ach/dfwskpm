@@ -7,6 +7,13 @@ import { Button } from '../../components/ui/Button'
 import { HouseholdPicker } from '../../components/admin/HouseholdPicker'
 import { cn, formatDate } from '../../lib/utils'
 import { effectiveInvoiceStatus } from '../../lib/activity'
+import {
+  applyPaymentToOpenInvoices,
+  markInvoicePaidInSupabase,
+  pushInvoiceToSupabase,
+  syncBillingFromSupabase,
+} from '../../lib/supabaseBilling'
+import { syncAdminDirectoryFromSupabase } from '../../lib/supabaseDirectory'
 
 type Panel = 'none' | 'invoice' | 'payment'
 type ListTab = 'invoices' | 'payments'
@@ -16,9 +23,6 @@ export function AdminBilling() {
   const households = useContentStore((s) => s.households)
   const invoices = useContentStore((s) => s.invoices)
   const transactions = useContentStore((s) => s.transactions)
-  const upsertInvoice = useContentStore((s) => s.upsertInvoice)
-  const markInvoicePaid = useContentStore((s) => s.markInvoicePaid)
-  const addTransaction = useContentStore((s) => s.addTransaction)
   const [searchParams] = useSearchParams()
   const preselect = searchParams.get('household') || ''
 
@@ -29,6 +33,12 @@ export function AdminBilling() {
   const [invoiceHouseholdId, setInvoiceHouseholdId] = useState(preselect)
   const [paymentHouseholdId, setPaymentHouseholdId] = useState('')
   const [payingId, setPayingId] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+  const [flash, setFlash] = useState('')
+
+  useEffect(() => {
+    void syncAdminDirectoryFromSupabase()
+  }, [])
 
   useEffect(() => {
     if (!preselect) return
@@ -117,11 +127,13 @@ export function AdminBilling() {
     setPaymentHouseholdId('')
   }
 
-  function onCreate(e: FormEvent<HTMLFormElement>) {
+  async function onCreate(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
     if (!invoiceHouseholdId) return
     const fd = new FormData(e.currentTarget)
-    upsertInvoice({
+    setBusy(true)
+    setFlash('')
+    const result = await pushInvoiceToSupabase({
       householdId: invoiceHouseholdId,
       title: String(fd.get('title')),
       description: String(fd.get('description')),
@@ -131,23 +143,38 @@ export function AdminBilling() {
       dueDate: new Date(String(fd.get('dueDate'))).toISOString(),
       issuedAt: new Date(String(fd.get('issuedAt'))).toISOString(),
     })
+    setBusy(false)
+    if (!result.ok) {
+      setFlash(result.error || 'Could not create invoice')
+      return
+    }
+    await syncBillingFromSupabase()
+    setFlash('Invoice created — the household will see the balance in their portal.')
     closePanel()
     setTab('invoices')
     setStatusFilter('open')
   }
 
-  function onLogPayment(e: FormEvent<HTMLFormElement>) {
+  async function onLogPayment(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
     if (!paymentHouseholdId) return
     const fd = new FormData(e.currentTarget)
-    addTransaction({
-      householdId: paymentHouseholdId,
-      amount: Number(fd.get('amount')),
-      method: String(fd.get('method')) as PaymentMethod,
-      status: 'completed',
-      note: String(fd.get('note') || ''),
-      reference: String(fd.get('reference') || ''),
-    })
+    setBusy(true)
+    setFlash('')
+    const result = await applyPaymentToOpenInvoices(
+      paymentHouseholdId,
+      Number(fd.get('amount')),
+      String(fd.get('method')) as PaymentMethod,
+      String(fd.get('reference') || ''),
+      String(fd.get('note') || ''),
+    )
+    setBusy(false)
+    if (!result.ok) {
+      setFlash(result.error || 'Could not log payment')
+      return
+    }
+    await syncBillingFromSupabase()
+    setFlash('Payment saved — balance updated for the household.')
     closePanel()
     setTab('payments')
   }
@@ -161,7 +188,18 @@ export function AdminBilling() {
             Create invoices, collect payments, keep a clean record per family.
           </p>
         </div>
-        <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
+        <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap lg:grid-cols-none">
+          <Button
+            variant="ghost"
+            className="justify-center"
+            disabled={busy}
+            onClick={() => {
+              setBusy(true)
+              void syncAdminDirectoryFromSupabase().finally(() => setBusy(false))
+            }}
+          >
+            {busy ? 'Syncing…' : 'Refresh'}
+          </Button>
           <Button
             variant="ghost"
             className="justify-center"
@@ -173,7 +211,7 @@ export function AdminBilling() {
             <Receipt className="h-4 w-4" /> Log payment
           </Button>
           <Button
-            className="justify-center"
+            className="col-span-2 justify-center sm:col-auto"
             onClick={() => {
               setPanel('invoice')
               setPayingId(null)
@@ -183,6 +221,12 @@ export function AdminBilling() {
           </Button>
         </div>
       </div>
+
+      {flash && (
+        <p className="mt-4 rounded-xl border border-marigold/30 bg-marigold/10 px-4 py-3 text-sm text-marigold">
+          {flash}
+        </p>
+      )}
 
       <div className="mt-5 grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-4">
         {[
@@ -295,8 +339,12 @@ export function AdminBilling() {
                 <Button type="button" variant="ghost" className="justify-center" onClick={closePanel}>
                   Cancel
                 </Button>
-                <Button type="submit" className="justify-center sm:min-w-[10rem]" disabled={!invoiceHouseholdId}>
-                  Save invoice
+                <Button
+                  type="submit"
+                  className="justify-center sm:min-w-[10rem]"
+                  disabled={busy || !invoiceHouseholdId}
+                >
+                  {busy ? 'Saving…' : 'Save invoice'}
                 </Button>
               </div>
             </form>
@@ -343,8 +391,12 @@ export function AdminBilling() {
                 <Button type="button" variant="ghost" className="justify-center" onClick={closePanel}>
                   Cancel
                 </Button>
-                <Button type="submit" className="justify-center sm:min-w-[10rem]" disabled={!paymentHouseholdId}>
-                  Save payment
+                <Button
+                  type="submit"
+                  className="justify-center sm:min-w-[10rem]"
+                  disabled={busy || !paymentHouseholdId}
+                >
+                  {busy ? 'Saving…' : 'Save payment'}
                 </Button>
               </div>
             </form>
@@ -442,8 +494,17 @@ export function AdminBilling() {
               }}
               onCancelPay={() => setPayingId(null)}
               onMarkPaid={(method, reference, note) => {
-                markInvoicePaid(inv.id, method, reference, note)
-                setPayingId(null)
+                void (async () => {
+                  setBusy(true)
+                  const result = await markInvoicePaidInSupabase(inv.id, method, reference, note)
+                  setBusy(false)
+                  if (!result.ok) {
+                    setFlash(result.error || 'Could not mark paid')
+                    return
+                  }
+                  setFlash('Marked paid — household balance updated.')
+                  setPayingId(null)
+                })()
               }}
             />
           ))}
@@ -464,9 +525,12 @@ export function AdminBilling() {
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="font-medium text-white">
+                    <p className="font-medium tabular-nums text-white">
                       ${txn.amount.toLocaleString()}
                       <span className="ml-2 text-sm font-normal capitalize text-mist/55">{txn.method}</span>
+                      {txn.status === 'pending' ? (
+                        <span className="ml-2 text-xs font-normal text-marigold">Pending review</span>
+                      ) : null}
                     </p>
                     <p className="mt-0.5 truncate text-sm text-mist/60">
                       {hh?.familyName || 'Unknown family'}

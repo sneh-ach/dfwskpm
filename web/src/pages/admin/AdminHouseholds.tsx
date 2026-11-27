@@ -7,6 +7,7 @@ import type { Household } from '../../types'
 import { Button } from '../../components/ui/Button'
 import { Avatar } from '../../components/ui/Avatar'
 import { formatDate, uid } from '../../lib/utils'
+import { effectiveInvoiceStatus } from '../../lib/activity'
 import {
   deleteHouseholdInSupabase,
   markHouseholdReviewedInSupabase,
@@ -430,20 +431,33 @@ export function AdminHouseholds() {
                   Open billing
                 </Link>
               </div>
+              {(() => {
+                const hhInvoices = invoices.filter((i) => i.householdId === selected.id)
+                const due = hhInvoices
+                  .filter((i) => {
+                    const s = effectiveInvoiceStatus(i)
+                    return s === 'open' || s === 'overdue'
+                  })
+                  .reduce((sum, i) => sum + i.amount, 0)
+                return (
               <div className="mb-4 space-y-2">
-                {invoices.filter((i) => i.householdId === selected.id).length === 0 && (
+                <p className="text-sm text-mist/70">
+                  Amount owed:{' '}
+                  <span className="font-medium text-white">${due.toLocaleString()}</span>
+                </p>
+                {hhInvoices.length === 0 && (
                   <p className="text-sm text-mist/55">No invoices yet for this family.</p>
                 )}
-                {invoices
-                  .filter((i) => i.householdId === selected.id)
-                  .map((inv) => (
+                {hhInvoices.map((inv) => (
                     <div key={inv.id} className="rounded-lg border border-white/10 px-3 py-2.5 text-sm">
                       <div className="flex items-start justify-between gap-2">
                         <p className="text-white">{inv.title}</p>
-                        <p className="shrink-0 font-medium text-white">${inv.amount.toLocaleString()}</p>
+                        <p className="shrink-0 font-medium tabular-nums text-white">
+                          ${inv.amount.toLocaleString()}
+                        </p>
                       </div>
                       <p className="mt-0.5 text-mist/55">
-                        {inv.invoiceNumber} · {inv.status}
+                        {inv.invoiceNumber} · {effectiveInvoiceStatus(inv)}
                       </p>
                     </div>
                   ))}
@@ -452,10 +466,13 @@ export function AdminHouseholds() {
                   .slice(0, 5)
                   .map((t) => (
                     <div key={t.id} className="text-xs text-mist/50">
-                      Payment ${t.amount} · {t.method} · {formatDate(t.createdAt)}
+                      {t.status === 'pending' ? 'Pending' : 'Payment'} ${t.amount} · {t.method} ·{' '}
+                      {formatDate(t.createdAt)}
                     </div>
                   ))}
               </div>
+                )
+              })()}
               <h3 className="mb-3 font-display text-xl text-white">Donation history</h3>
               <div className="space-y-2">
                 {selected.donations.length === 0 && (

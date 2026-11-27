@@ -13,7 +13,7 @@ import { useAuthStore } from '../../store/authStore'
 import { useContentStore } from '../../store/contentStore'
 import { Avatar } from '../../components/ui/Avatar'
 import { Button } from '../../components/ui/Button'
-import { buildHouseholdActivity } from '../../lib/activity'
+import { buildHouseholdActivity, effectiveInvoiceStatus } from '../../lib/activity'
 import { buildEmailVars, openMailto, renderTemplate } from '../../lib/email'
 import { cn, formatDate } from '../../lib/utils'
 
@@ -139,7 +139,10 @@ export function AdminMemberLookup() {
   })
 
   const openBalance = hhInvoices
-    .filter((i) => i.status === 'open' || i.status === 'overdue')
+    .filter((i) => {
+      const status = effectiveInvoiceStatus(i)
+      return status === 'open' || status === 'overdue'
+    })
     .reduce((s, i) => s + i.amount, 0)
 
   const linkedUser = users.find((u) => u.householdId === household?.id && u.role === 'member')
@@ -154,7 +157,10 @@ export function AdminMemberLookup() {
     if (!household || !selected) return
     const tpl = templates.find((t) => t.id === tplId) || templates[0]
     if (!tpl) return
-    const openInv = hhInvoices.find((i) => i.status === 'open' || i.status === 'overdue')
+    const openInv = hhInvoices.find((i) => {
+      const status = effectiveInvoiceStatus(i)
+      return status === 'open' || status === 'overdue'
+    })
     const vars = buildEmailVars({
       settings,
       household,
@@ -398,6 +404,12 @@ export function AdminMemberLookup() {
 
               {tab === 'billing' && (
                 <div className="space-y-4">
+                  <p className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2.5 text-sm text-mist/70">
+                    Amount owed:{' '}
+                    <span className="font-medium tabular-nums text-white">
+                      ${openBalance.toLocaleString()}
+                    </span>
+                  </p>
                   <div>
                     <p className="mb-2 text-xs uppercase tracking-wider text-mist/50">Invoices</p>
                     {hhInvoices.length === 0 && (
@@ -411,10 +423,12 @@ export function AdminMemberLookup() {
                         >
                           <div className="flex justify-between gap-2">
                             <p className="text-white">{inv.title}</p>
-                            <p className="shrink-0 text-white">${inv.amount.toLocaleString()}</p>
+                            <p className="shrink-0 tabular-nums text-white">
+                              ${inv.amount.toLocaleString()}
+                            </p>
                           </div>
                           <p className="mt-0.5 text-xs text-mist/50">
-                            {inv.invoiceNumber} · {inv.status} · due{' '}
+                            {inv.invoiceNumber} · {effectiveInvoiceStatus(inv)} · due{' '}
                             {formatDate(inv.dueDate, { weekday: undefined })}
                           </p>
                         </div>
@@ -429,7 +443,8 @@ export function AdminMemberLookup() {
                     <div className="space-y-1.5">
                       {hhTxns.map((t) => (
                         <p key={t.id} className="text-sm text-mist/65">
-                          ${t.amount.toLocaleString()} · {t.method} ·{' '}
+                          ${t.amount.toLocaleString()} · {t.method}
+                          {t.status === 'pending' ? ' · pending review' : ''} ·{' '}
                           {formatDate(t.createdAt, { weekday: undefined })}
                           {t.reference ? ` · ${t.reference}` : ''}
                         </p>

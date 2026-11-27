@@ -2,6 +2,8 @@ import { supabase, type ProfileRow } from './supabase'
 import type { User } from '../types'
 import { useAuthStore } from '../store/authStore'
 import { syncHouseholdsFromSupabase } from './supabaseHouseholds'
+import { migrateLocalInvoicesToSupabase, syncBillingFromSupabase } from './supabaseBilling'
+import { syncMemberRequestsFromSupabase } from './supabaseRequests'
 
 /** Admin: merge member profiles into the auth user directory for lookup. */
 export async function syncMemberProfilesFromSupabase(): Promise<number> {
@@ -41,5 +43,11 @@ export async function syncMemberProfilesFromSupabase(): Promise<number> {
 }
 
 export async function syncAdminDirectoryFromSupabase() {
-  await Promise.all([syncHouseholdsFromSupabase(), syncMemberProfilesFromSupabase()])
+  await migrateLocalInvoicesToSupabase()
+  await Promise.all([
+    syncHouseholdsFromSupabase(),
+    syncMemberProfilesFromSupabase(),
+    syncBillingFromSupabase(),
+    syncMemberRequestsFromSupabase(),
+  ])
 }

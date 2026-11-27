@@ -23,6 +23,8 @@ import { AvatarUpload } from '../components/ui/AvatarUpload'
 import { formatDate, formatTime, isPublic } from '../lib/memberFilters'
 import { buildHouseholdActivity, effectiveInvoiceStatus } from '../lib/activity'
 import { hydrateHousehold } from '../lib/supabaseHouseholds'
+import { syncBillingFromSupabase, pushTransactionToSupabase } from '../lib/supabaseBilling'
+import { pushMemberRequestToSupabase, syncMemberRequestsFromSupabase } from '../lib/supabaseRequests'
 import type { Invoice, MemberRequestType } from '../types'
 
 export function MemberPage() {
@@ -37,16 +39,18 @@ export function MemberPage() {
   const allTransactions = useContentStore((s) => s.transactions)
   const allRequests = useContentStore((s) => s.memberRequests) || []
   const schedule = useContentStore((s) => s.schedule)
-  const markInvoicePaid = useContentStore((s) => s.markInvoicePaid)
-  const addMemberRequest = useContentStore((s) => s.addMemberRequest)
   const location = useLocation()
   const navigate = useNavigate()
   const [welcomeBanner, setWelcomeBanner] = useState('')
   const [passwordMsg, setPasswordMsg] = useState('')
   const [passwordError, setPasswordError] = useState('')
+  const [payNotice, setPayNotice] = useState('')
 
   useEffect(() => {
-    if (user?.householdId) void hydrateHousehold(user.householdId)
+    if (!user?.householdId) return
+    void hydrateHousehold(user.householdId)
+    void syncBillingFromSupabase(user.householdId)
+    void syncMemberRequestsFromSupabase()
   }, [user?.householdId])
 
   useEffect(() => {
@@ -120,8 +124,13 @@ export function MemberPage() {
     return status === 'open' || status === 'overdue'
   })
   const openBalance = openInvoices.reduce((sum, i) => sum + i.amount, 0)
-  const donatedTotal = household?.donations.reduce((sum, d) => sum + d.amount, 0) ?? 0
+  const completedPayments = transactions
+    .filter((t) => t.status === 'completed')
+    .reduce((sum, t) => sum + t.amount, 0)
+  const donatedTotal =
+    (household?.donations.reduce((sum, d) => sum + d.amount, 0) ?? 0) || completedPayments
   const publicSchedule = schedule.filter((s) => isPublic(s.status)).slice(0, 3)
+  const reviewLabel = household?.needsReview ? 'Pending review' : household?.status || 'unlinked'
 
   if (!user) {
     return (
@@ -146,9 +155,25 @@ export function MemberPage() {
     setSaved(true)
   }
 
-  function payInvoice(invoiceId: string) {
-    markInvoicePaid(invoiceId, 'paypal', `MEMBER-${Date.now()}`)
+  async function payInvoice(invoice: Invoice) {
+    setPayNotice('')
+    const householdId = user?.householdId
+    if (householdId) {
+      await pushTransactionToSupabase({
+        householdId,
+        invoiceId: invoice.id,
+        amount: invoice.amount,
+        method: 'paypal',
+        status: 'pending',
+        reference: `MEMBER-${Date.now()}`,
+        note: `Member started PayPal for ${invoice.invoiceNumber}`,
+      })
+      await syncBillingFromSupabase(householdId)
+    }
     window.open(settings.donatePaypal, '_blank', 'noreferrer')
+    setPayNotice(
+      'PayPal opened. Your balance stays open until the temple confirms payment — usually after they mark the invoice paid.',
+    )
   }
 
   const tabs = [
@@ -243,10 +268,21 @@ export function MemberPage() {
           <div>
             <div className="grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-4">
               <Stat label="Family members" value={String(household?.members.length ?? 0)} icon={Users} />
-              <Stat label="Balance due" value={`$${openBalance.toLocaleString()}`} icon={CreditCard} />
-              <Stat label="Donations" value={`$${donatedTotal.toLocaleString()}`} icon={Heart} />
-              <Stat label="Status" value={household?.status || 'unlinked'} icon={Home} />
+              <Stat label="Amount you owe" value={`$${openBalance.toLocaleString()}`} icon={CreditCard} />
+              <Stat label="Payments logged" value={`$${donatedTotal.toLocaleString()}`} icon={Heart} />
+              <Stat label="Status" value={reviewLabel} icon={Home} />
             </div>
+            {household?.needsReview && (
+              <div className="mt-4 rounded-xl border border-saffron/25 bg-saffron/10 px-4 py-3 text-sm text-night">
+                Temple staff still need to review this household. You can use the portal meanwhile — invoices and
+                balance update here as soon as billing is posted.
+              </div>
+            )}
+            {payNotice && (
+              <div className="mt-4 rounded-xl border border-temple/20 bg-temple/5 px-4 py-3 text-sm text-night">
+                {payNotice}
+              </div>
+            )}
 
             <div className="mt-5 flex gap-2 overflow-x-auto pb-1 sm:mt-6 sm:flex-wrap sm:overflow-visible">
               {(
@@ -271,7 +307,14 @@ export function MemberPage() {
 
             <div className="mt-6 grid gap-5 sm:mt-8 sm:gap-6 lg:grid-cols-[1.15fr_0.85fr]">
             <div className="space-y-5 sm:space-y-6">
-              <Panel title="What you owe" action={openBalance > 0 ? `${openInvoices.length} open` : 'All clear'}>
+              <Panel
+                title="Amount you owe"
+                action={
+                  openBalance > 0
+                    ? `$${openBalance.toLocaleString()} · ${openInvoices.length} open`
+                    : 'All clear'
+                }
+              >
                 {openInvoices.length === 0 ? (
                   <p className="text-sm text-slate">No open invoices right now. Thank you for staying current.</p>
                 ) : (
@@ -281,14 +324,15 @@ export function MemberPage() {
                         key={inv.id}
                         className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-ink/10 p-4"
                       >
-                        <div>
+                        <div className="min-w-0 flex-1">
                           <p className="font-medium text-night">{inv.title}</p>
-                          <p className="mt-1 text-sm text-slate">
-                            ${inv.amount.toLocaleString()} · due {formatDate(inv.dueDate, { weekday: undefined })}
+                          <p className="mt-1 text-sm tabular-nums text-slate">
+                            ${inv.amount.toLocaleString()} · due{' '}
+                            {formatDate(inv.dueDate, { weekday: undefined })}
                           </p>
                           <p className="mt-1 text-xs text-slate/70">{inv.description}</p>
                         </div>
-                        <Button size="sm" onClick={() => payInvoice(inv.id)}>
+                        <Button size="sm" className="shrink-0" onClick={() => void payInvoice(inv)}>
                           Pay online
                         </Button>
                       </div>
@@ -546,42 +590,65 @@ export function MemberPage() {
         )}
 
         {tab === 'payments' && (
-          <div className="mt-10 space-y-6">
+          <div className="mt-6 space-y-6 sm:mt-8">
+            <div className="rounded-2xl border border-ink/8 bg-white p-5 md:p-6">
+              <div className="flex flex-wrap items-end justify-between gap-3">
+                <div>
+                  <p className="text-[11px] uppercase tracking-[0.18em] text-temple">Amount you owe</p>
+                  <p className="mt-1 font-display text-3xl tabular-nums text-night sm:text-4xl">
+                    ${openBalance.toLocaleString()}
+                  </p>
+                </div>
+                <p className="text-sm text-slate">
+                  {openInvoices.length === 0
+                    ? 'All clear with the temple'
+                    : `${openInvoices.length} open invoice${openInvoices.length === 1 ? '' : 's'}`}
+                </p>
+              </div>
+            </div>
+
             <Panel title="Invoices">
               {invoices.length === 0 ? (
                 <p className="text-sm text-slate">No invoices yet for this household.</p>
               ) : (
                 <div className="space-y-3">
-                  {invoices.map((inv) => (
+                  {invoices.map((inv) => {
+                    const status = effectiveInvoiceStatus(inv)
+                    return (
                     <div
                       key={inv.id}
                       className="flex flex-wrap items-start justify-between gap-3 rounded-xl border border-ink/10 p-4"
                     >
-                      <div>
+                      <div className="min-w-0 flex-1">
                         <p className="font-medium text-night">
                           {inv.invoiceNumber} · {inv.title}
                         </p>
                         <p className="mt-1 text-sm text-slate">{inv.description}</p>
                         <p className="mt-2 text-xs text-slate/70">
-                          ${inv.amount.toLocaleString()} · {effectiveInvoiceStatus(inv)} · issued{' '}
+                          <span className="font-medium tabular-nums text-night">
+                            ${inv.amount.toLocaleString()}
+                          </span>
+                          {' · '}
+                          <span className="capitalize">{status}</span>
+                          {' · issued '}
                           {formatDate(inv.issuedAt, { weekday: undefined })} · due{' '}
                           {formatDate(inv.dueDate, { weekday: undefined })}
                           {inv.paidAt ? ` · paid ${formatDate(inv.paidAt, { weekday: undefined })}` : ''}
                         </p>
                       </div>
-                      <div className="flex flex-wrap gap-2">
+                      <div className="flex shrink-0 flex-wrap gap-2">
                         <Button size="sm" variant="line" onClick={() => setReceipt(inv)}>
                           <Receipt className="h-4 w-4" /> Details
                         </Button>
-                        {(effectiveInvoiceStatus(inv) === 'open' ||
-                          effectiveInvoiceStatus(inv) === 'overdue') && (
-                          <Button size="sm" onClick={() => payInvoice(inv.id)}>
+                        {(status === 'open' || status === 'overdue') && (
+                          <Button size="sm" onClick={() => void payInvoice(inv)}>
                             Pay online
                           </Button>
                         )}
                       </div>
                     </div>
-                  ))}
+                    )
+                  })}
                 </div>
               )}
             </Panel>
@@ -593,16 +660,21 @@ export function MemberPage() {
                 <div className="divide-y divide-ink/8 overflow-hidden rounded-xl border border-ink/8">
                   {transactions.map((t) => (
                     <div key={t.id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 text-sm">
-                      <div>
-                        <p className="font-medium text-night">
+                      <div className="min-w-0">
+                        <p className="font-medium tabular-nums text-night">
                           ${t.amount.toLocaleString()} · {t.method}
+                          {t.status === 'pending' ? (
+                            <span className="ml-2 text-xs font-normal text-saffron">Pending temple review</span>
+                          ) : null}
                         </p>
                         <p className="text-slate">
                           {t.note || 'Payment'}
                           {t.reference ? ` · ${t.reference}` : ''}
                         </p>
                       </div>
-                      <p className="text-xs text-slate/70">{formatDate(t.createdAt, { weekday: undefined })}</p>
+                      <p className="shrink-0 text-xs text-slate/70">
+                        {formatDate(t.createdAt, { weekday: undefined })}
+                      </p>
                     </div>
                   ))}
                 </div>
@@ -671,18 +743,24 @@ export function MemberPage() {
                   return
                 }
                 const fd = new FormData(e.currentTarget)
-                addMemberRequest({
-                  householdId: user.householdId,
-                  userId: user.id,
-                  name: user.name,
-                  email: user.email,
-                  type: String(fd.get('type') || 'general') as MemberRequestType,
-                  subject: String(fd.get('subject') || ''),
-                  message: String(fd.get('message') || ''),
-                })
-                setRequestSent(true)
-                e.currentTarget.reset()
-                window.setTimeout(() => setRequestSent(false), 3000)
+                void (async () => {
+                  const result = await pushMemberRequestToSupabase({
+                    householdId: user.householdId!,
+                    userId: user.id,
+                    name: user.name,
+                    email: user.email,
+                    type: String(fd.get('type') || 'general') as MemberRequestType,
+                    subject: String(fd.get('subject') || ''),
+                    message: String(fd.get('message') || ''),
+                  })
+                  if (!result.ok) {
+                    alert(result.error || 'Could not send request')
+                    return
+                  }
+                  setRequestSent(true)
+                  e.currentTarget.reset()
+                  window.setTimeout(() => setRequestSent(false), 3000)
+                })()
               }}
             >
               <div>
@@ -860,7 +938,7 @@ export function MemberPage() {
                 effectiveInvoiceStatus(receipt) === 'overdue') && (
                 <Button
                   onClick={() => {
-                    payInvoice(receipt.id)
+                    void payInvoice(receipt)
                     setReceipt(null)
                   }}
                 >
@@ -900,12 +978,14 @@ function Stat({
   icon: typeof Users
 }) {
   return (
-    <div className="rounded-xl border border-ink/8 bg-white p-3.5 sm:rounded-2xl sm:p-5">
-      <div className="flex items-center justify-between gap-2">
-        <p className="text-[10px] uppercase tracking-wider text-temple sm:text-xs">{label}</p>
+    <div className="flex min-h-[5.5rem] flex-col rounded-xl border border-ink/8 bg-white p-3.5 sm:min-h-[6.5rem] sm:rounded-2xl sm:p-5">
+      <div className="flex items-start justify-between gap-2">
+        <p className="text-[10px] uppercase leading-snug tracking-wider text-temple sm:text-xs">{label}</p>
         <Icon className="h-3.5 w-3.5 shrink-0 text-saffron sm:h-4 sm:w-4" />
       </div>
-      <p className="mt-1.5 font-display text-xl capitalize text-night sm:mt-2 sm:text-3xl">{value}</p>
+      <p className="mt-auto pt-2 font-display text-xl tabular-nums capitalize leading-tight text-night sm:text-3xl">
+        {value}
+      </p>
     </div>
   )
 }
