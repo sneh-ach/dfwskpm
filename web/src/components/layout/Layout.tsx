@@ -14,7 +14,7 @@ export function Layout() {
       <main className="flex-1">
         <Outlet />
       </main>
-      <div className="pb-[calc(4.25rem+env(safe-area-inset-bottom))] lg:pb-0">
+      <div className="pb-[calc(5rem+env(safe-area-inset-bottom,0px))] lg:pb-0">
         <Footer />
       </div>
       <MobileBottomNav />

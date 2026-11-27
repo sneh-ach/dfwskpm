@@ -20,10 +20,10 @@ export function MobileBottomNav() {
   return (
     <nav
       className="fixed inset-x-0 bottom-0 z-50 border-t border-ink/10 bg-white/95 backdrop-blur-xl lg:hidden"
-      style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
+      style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 0.65rem)' }}
       aria-label="Primary"
     >
-      <div className="mx-auto grid max-w-lg grid-cols-5 px-0.5 pt-1 pb-0.5">
+      <div className="mx-auto grid max-w-lg grid-cols-5 px-0.5 pt-1.5 pb-1">
         {items.map((item) => (
           <NavLink
             key={item.to + item.label}

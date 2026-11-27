@@ -224,12 +224,15 @@ export function AdminLayout() {
             </div>
           )}
 
-          <div className="p-3 pb-[calc(4.75rem+env(safe-area-inset-bottom))] sm:p-5 md:p-8 lg:pb-8">
+          <div className="p-3 pb-[calc(5.25rem+env(safe-area-inset-bottom,0px))] sm:p-5 md:p-8 lg:pb-8">
             <Outlet />
           </div>
 
           {/* Mobile bottom quick nav */}
-          <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-white/10 bg-night/95 backdrop-blur-xl lg:hidden pb-[env(safe-area-inset-bottom)]">
+          <nav
+            className="fixed inset-x-0 bottom-0 z-30 border-t border-white/10 bg-night/95 backdrop-blur-xl lg:hidden"
+            style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 0.65rem)' }}
+          >
             <div className="mx-auto grid max-w-lg grid-cols-5 gap-0.5 px-1 py-1.5">
               {quickNav.map((item) => (
                 <NavLink
