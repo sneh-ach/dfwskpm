@@ -7,6 +7,7 @@ import { useContentStore } from './contentStore'
 import { isAdmin, isStaff } from '../lib/permissions'
 import { supabase, supabaseConfigured } from '../lib/supabase'
 import { ensureSessionUser, fetchProfile, profileToUser } from '../lib/supabaseAuth'
+import { hydrateHousehold } from '../lib/supabaseHouseholds'
 
 type AuthResult = { ok: boolean; error?: string }
 
@@ -69,7 +70,7 @@ function publicUser(user: User): Omit<User, 'password'> {
   return rest
 }
 
-function queueWelcome(email: string, primaryName: string, familyName: string, householdId: string) {
+function queueWelcomeEmail(email: string, primaryName: string, familyName: string, householdId: string) {
   const settings = useContentStore.getState().settings
   const welcome = useContentStore.getState().emailTemplates.find((t) => t.key === 'welcome')
   if (!welcome) return
@@ -107,6 +108,7 @@ export const useAuthStore = create<AuthState>()(
         }
         const user = await ensureSessionUser()
         set({ currentUser: user, authReady: true })
+        if (user?.householdId) void hydrateHousehold(user.householdId)
         supabase.auth.onAuthStateChange(async (event) => {
           if (event === 'SIGNED_OUT') {
             set({ currentUser: null })
@@ -115,6 +117,7 @@ export const useAuthStore = create<AuthState>()(
           if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
             const next = await ensureSessionUser()
             set({ currentUser: next })
+            if (next?.householdId) void hydrateHousehold(next.householdId)
           }
         })
       },
@@ -137,6 +140,9 @@ export const useAuthStore = create<AuthState>()(
               : null
           if (!user) return { ok: false, error: 'Could not load profile.' }
           set({ currentUser: user })
+          if ('householdId' in user && user.householdId) {
+            void hydrateHousehold(user.householdId)
+          }
           return { ok: true }
         }
 
@@ -173,110 +179,78 @@ export const useAuthStore = create<AuthState>()(
         const householdPhoto = photo || avatar
 
         if (supabase) {
-          const { data: authData, error: authError } = await supabase.auth.signUp({
-            email,
-            password,
-            options: {
-              data: { name: primaryName, role: 'member' },
-            },
-          })
-          if (authError) return { ok: false, error: authError.message }
-          const userId = authData.user?.id
+          // Re-use session when an account exists but household was never linked
+          let userId = (await supabase.auth.getSession()).data.session?.user?.id
+          const sessionEmail = (await supabase.auth.getSession()).data.session?.user?.email
+
           if (!userId) {
-            return {
-              ok: false,
-              error: 'Check your email to confirm the account, then sign in.',
-            }
-          }
-
-          const { data: hh, error: hhError } = await supabase
-            .from('households')
-            .insert({
-              family_name: familyName,
-              primary_name: primaryName,
+            const { data: authData, error: authError } = await supabase.auth.signUp({
               email,
-              phone,
-              address_line1: addressLine1,
-              address_line2: addressLine2 || null,
-              city,
-              state,
-              zip,
-              photo_url: householdPhoto || null,
-              status: 'active',
-              source: 'signup',
-              needs_review: true,
-              notes: 'Registered via household signup — awaiting temple review',
+              password,
+              options: {
+                data: { name: primaryName, role: 'member' },
+              },
             })
-            .select('*')
-            .single()
-
-          if (hhError || !hh) {
-            return { ok: false, error: hhError?.message || 'Could not create household.' }
+            if (authError) {
+              // Account may already exist from a partial signup — try signing in
+              const { data: signedIn, error: signInError } = await supabase.auth.signInWithPassword({
+                email,
+                password,
+              })
+              if (signInError || !signedIn.user) {
+                return { ok: false, error: authError.message }
+              }
+              userId = signedIn.user.id
+            } else {
+              userId = authData.user?.id
+              if (!authData.session) {
+                return {
+                  ok: false,
+                  error:
+                    'Check your email to confirm the account, then sign in and finish household registration.',
+                }
+              }
+            }
+          } else if (sessionEmail && sessionEmail.toLowerCase() !== email.toLowerCase()) {
+            return { ok: false, error: 'You are signed in as a different email. Sign out first.' }
           }
 
-          const memberRows = members.map((m, i) => ({
-            household_id: hh.id,
-            name: m.name,
-            relation: m.relation,
-            age: m.age ?? null,
-            is_primary: Boolean(m.isPrimary) || i === 0,
-            photo_url: m.photo || (i === 0 ? householdPhoto : null) || null,
-          }))
-          await supabase.from('household_members').insert(memberRows)
+          if (!userId) {
+            return { ok: false, error: 'Could not create account. Try signing in, then register again.' }
+          }
 
-          await supabase
-            .from('profiles')
-            .update({
-              name: primaryName,
-              phone,
-              avatar_url: avatar || householdPhoto || null,
-              household_id: hh.id,
-              role: 'member',
-            })
-            .eq('id', userId)
-
-          // Mirror into local CMS store so admin UI sees it immediately
-          useContentStore.getState().upsertHousehold({
-            id: hh.id,
-            familyName,
-            primaryName,
-            email,
-            phone,
-            addressLine1,
-            addressLine2,
-            city,
-            state,
-            zip,
-            photo: householdPhoto,
-            members: members.map((m, i) => ({
-              ...m,
-              id: uid('hm'),
-              photo: m.photo || (i === 0 ? householdPhoto : undefined),
+          const { data: householdId, error: rpcError } = await supabase.rpc('register_household', {
+            p_family_name: familyName,
+            p_primary_name: primaryName,
+            p_email: email,
+            p_phone: phone,
+            p_address_line1: addressLine1,
+            p_address_line2: addressLine2 || '',
+            p_city: city,
+            p_state: state,
+            p_zip: zip,
+            p_photo_url: householdPhoto || '',
+            p_avatar_url: avatar || householdPhoto || '',
+            p_members: members.map((m, i) => ({
+              name: m.name,
+              relation: m.relation,
+              age: m.age ?? null,
+              isPrimary: Boolean(m.isPrimary) || i === 0,
+              photo: m.photo || (i === 0 ? householdPhoto : null) || null,
             })),
-            donations: [],
-            status: 'active',
-            source: 'signup',
-            needsReview: true,
-            notes: 'Registered via household signup — awaiting temple review',
           })
 
-          queueWelcome(email, primaryName, familyName, hh.id)
+          if (rpcError || !householdId) {
+            return { ok: false, error: rpcError?.message || 'Could not create household.' }
+          }
 
-          const profile = await fetchProfile(userId)
-          set({
-            currentUser: profile
-              ? profileToUser(profile)
-              : {
-                  id: userId,
-                  name: primaryName,
-                  email,
-                  phone,
-                  avatar: avatar || householdPhoto,
-                  role: 'member',
-                  householdId: hh.id,
-                  createdAt: new Date().toISOString(),
-                },
-          })
+          const hid = String(householdId)
+          await hydrateHousehold(hid)
+          queueWelcomeEmail(email, primaryName, familyName, hid)
+
+          // Always send new households to sign-in
+          await supabase.auth.signOut()
+          set({ currentUser: null })
           return { ok: true }
         }
 
@@ -307,7 +281,7 @@ export const useAuthStore = create<AuthState>()(
           notes: 'Registered via household signup — awaiting temple review',
         })
 
-        queueWelcome(email, primaryName, familyName, householdId)
+        queueWelcomeEmail(email, primaryName, familyName, householdId)
 
         const user: User = {
           id: uid('user'),
@@ -320,7 +294,7 @@ export const useAuthStore = create<AuthState>()(
           householdId,
           createdAt: new Date().toISOString(),
         }
-        set((s) => ({ users: [...s.users, user], currentUser: publicUser(user) }))
+        set((s) => ({ users: [...s.users, user], currentUser: null }))
         return { ok: true }
       },
 

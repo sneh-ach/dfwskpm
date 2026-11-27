@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { Plus, Trash2 } from 'lucide-react'
 import { useAuthStore } from '../store/authStore'
 import { Button } from '../components/ui/Button'
@@ -9,7 +9,15 @@ type MemberDraft = { name: string; relation: string; age: string; photo: string 
 
 export function SignupPage() {
   const signupHousehold = useAuthStore((s) => s.signupHousehold)
+  const currentUser = useAuthStore((s) => s.currentUser)
   const navigate = useNavigate()
+  const location = useLocation()
+  const completeHousehold = Boolean(
+    (location.state as { completeHousehold?: boolean } | null)?.completeHousehold ||
+      (currentUser && !currentUser.householdId && currentUser.role === 'member'),
+  )
+  const prefillEmail =
+    (location.state as { email?: string } | null)?.email || currentUser?.email || ''
   const [error, setError] = useState('')
   const [avatar, setAvatar] = useState('')
   const [members, setMembers] = useState<MemberDraft[]>([
@@ -48,16 +56,26 @@ export function SignupPage() {
       setError(result.error || 'Signup failed')
       return
     }
-    navigate('/member')
+    navigate('/login', {
+      replace: true,
+      state: {
+        registered: true,
+        email: String(fd.get('email') || ''),
+        message: 'Household registered. Sign in to open your family portal.',
+      },
+    })
   }
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-10 sm:py-14 md:px-6 md:py-16">
       <p className="text-xs uppercase tracking-[0.22em] text-temple">Household membership</p>
-      <h1 className="mt-3 font-display text-3xl text-night sm:text-4xl md:text-5xl">Register your family</h1>
+      <h1 className="mt-3 font-display text-3xl text-night sm:text-4xl md:text-5xl">
+        {completeHousehold ? 'Finish household setup' : 'Register your family'}
+      </h1>
       <p className="mt-3 max-w-2xl text-sm text-slate sm:mt-4 sm:text-base">
-        One account for the household — photo, address, family members, invoices, and payment history sync to the
-        temple directory when you register.
+        {completeHousehold
+          ? 'Your login exists, but no family record was linked yet. Submit your household details once, then sign in again.'
+          : 'One account for the household — photo, address, family members, invoices, and payment history sync to the temple directory when you register. After registering you’ll sign in to open the portal.'}
       </p>
 
       <form
@@ -83,13 +101,21 @@ export function SignupPage() {
           <h2 className="md:col-span-2 font-display text-2xl text-night">Household details</h2>
           <input name="familyName" required placeholder="Family / last name" className="auth-field" />
           <input name="primaryName" required placeholder="Primary contact full name" className="auth-field" />
-          <input name="email" type="email" required placeholder="Email (login)" className="auth-field" />
+          <input
+            name="email"
+            type="email"
+            required
+            placeholder="Email (login)"
+            defaultValue={prefillEmail}
+            readOnly={Boolean(prefillEmail && completeHousehold)}
+            className="auth-field"
+          />
           <input name="phone" required placeholder="Phone" className="auth-field" />
           <input
             name="password"
             type="password"
             required
-            placeholder="Password (min 6)"
+            placeholder={completeHousehold ? 'Your password (to confirm)' : 'Password (min 6)'}
             className="auth-field md:col-span-2"
           />
         </section>

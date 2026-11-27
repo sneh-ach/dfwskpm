@@ -8,8 +8,12 @@ export function LoginPage() {
   const login = useAuthStore((s) => s.login)
   const navigate = useNavigate()
   const location = useLocation()
-  const from = (location.state as { from?: string } | null)?.from
+  const state = location.state as
+    | { from?: string; registered?: boolean; email?: string; message?: string }
+    | null
+  const from = state?.from
   const [error, setError] = useState('')
+  const [notice] = useState(state?.message || '')
 
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -24,6 +28,14 @@ export function LoginPage() {
     const staff = isStaff(user?.role)
     if (staff) {
       navigate(from?.startsWith('/admin') ? from : '/admin')
+      return
+    }
+    // Login without a household → finish registration
+    if (!user?.householdId) {
+      navigate('/signup', {
+        replace: true,
+        state: { completeHousehold: true, email: user?.email },
+      })
       return
     }
     if (from?.startsWith('/admin')) {
@@ -47,9 +59,21 @@ export function LoginPage() {
         onSubmit={onSubmit}
         className="space-y-4 rounded-2xl bg-white p-6 shadow-[0_12px_40px_rgba(7,19,31,0.08)] sm:p-8"
       >
+        {notice && (
+          <p className="rounded-xl border border-saffron/25 bg-saffron/10 px-3 py-2.5 text-sm text-night">
+            {notice}
+          </p>
+        )}
         <label className="block text-sm">
           <span className="mb-1.5 block text-slate">Email</span>
-          <input name="email" type="email" required autoComplete="email" className="auth-field" />
+          <input
+            name="email"
+            type="email"
+            required
+            autoComplete="email"
+            defaultValue={state?.email || ''}
+            className="auth-field"
+          />
         </label>
         <label className="block text-sm">
           <span className="mb-1.5 block text-slate">Password</span>

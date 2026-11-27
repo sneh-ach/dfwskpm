@@ -1,4 +1,4 @@
-import { useMemo, useState, type FormEvent } from 'react'
+import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import {
   BookOpen,
@@ -21,6 +21,7 @@ import { Avatar } from '../components/ui/Avatar'
 import { AvatarUpload } from '../components/ui/AvatarUpload'
 import { formatDate, formatTime, isPublic } from '../lib/memberFilters'
 import { buildHouseholdActivity, effectiveInvoiceStatus } from '../lib/activity'
+import { hydrateHousehold } from '../lib/supabaseHouseholds'
 import type { Invoice, MemberRequestType } from '../types'
 
 export function MemberPage() {
@@ -36,6 +37,10 @@ export function MemberPage() {
   const schedule = useContentStore((s) => s.schedule)
   const markInvoicePaid = useContentStore((s) => s.markInvoicePaid)
   const addMemberRequest = useContentStore((s) => s.addMemberRequest)
+
+  useEffect(() => {
+    if (user?.householdId) void hydrateHousehold(user.householdId)
+  }, [user?.householdId])
 
   const household = useMemo(
     () => (user?.householdId ? households.find((h) => h.id === user.householdId) : undefined),
