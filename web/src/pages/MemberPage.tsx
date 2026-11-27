@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import {
   BookOpen,
   CalendarDays,
@@ -29,6 +29,7 @@ export function MemberPage() {
   const logout = useAuthStore((s) => s.logout)
   const updateProfile = useAuthStore((s) => s.updateProfile)
   const updateMyHousehold = useAuthStore((s) => s.updateMyHousehold)
+  const updatePassword = useAuthStore((s) => s.updatePassword)
   const settings = useContentStore((s) => s.settings)
   const households = useContentStore((s) => s.households)
   const allInvoices = useContentStore((s) => s.invoices)
@@ -37,6 +38,14 @@ export function MemberPage() {
   const schedule = useContentStore((s) => s.schedule)
   const markInvoicePaid = useContentStore((s) => s.markInvoicePaid)
   const addMemberRequest = useContentStore((s) => s.addMemberRequest)
+  const location = useLocation()
+  const welcomeMessage =
+    (location.state as { message?: string } | null)?.message ||
+    ((location.state as { welcome?: boolean } | null)?.welcome
+      ? 'Welcome — your household is registered.'
+      : '')
+  const [passwordMsg, setPasswordMsg] = useState('')
+  const [passwordError, setPasswordError] = useState('')
 
   useEffect(() => {
     if (user?.householdId) void hydrateHousehold(user.householdId)
@@ -196,6 +205,11 @@ export function MemberPage() {
       </div>
 
       <div className="mx-auto max-w-7xl px-4 py-7 sm:py-10 md:px-6 md:py-14">
+        {welcomeMessage && (
+          <div className="mb-6 rounded-2xl border border-saffron/30 bg-saffron/10 p-4 text-sm text-night sm:mb-8 sm:p-5">
+            <p className="font-medium">{welcomeMessage}</p>
+          </div>
+        )}
         {!household && (
           <div className="mb-6 rounded-2xl border border-saffron/30 bg-saffron/10 p-4 text-sm text-night sm:mb-8 sm:p-5">
             <p className="font-medium">No household is linked to this login yet.</p>
@@ -721,7 +735,54 @@ export function MemberPage() {
               {saved && <p className="text-sm text-temple">Profile updated — photo & contact synced to temple.</p>}
             </form>
 
-            <div className="rounded-2xl border border-ink/8 bg-paper p-6">
+            <form
+              className="space-y-4 rounded-2xl border border-ink/8 bg-white p-5 sm:p-6"
+              onSubmit={async (e) => {
+                e.preventDefault()
+                setPasswordMsg('')
+                setPasswordError('')
+                const fd = new FormData(e.currentTarget)
+                const next = String(fd.get('password') || '')
+                const confirm = String(fd.get('confirm') || '')
+                if (next.length < 6) {
+                  setPasswordError('Password must be at least 6 characters.')
+                  return
+                }
+                if (next !== confirm) {
+                  setPasswordError('Passwords do not match.')
+                  return
+                }
+                const result = await updatePassword(next)
+                if (!result.ok) {
+                  setPasswordError(result.error || 'Could not update password')
+                  return
+                }
+                setPasswordMsg('Password updated. Use it next time you sign in.')
+                e.currentTarget.reset()
+              }}
+            >
+              <h2 className="font-display text-2xl text-night">Change password</h2>
+              <p className="text-sm text-slate">
+                Or use{' '}
+                <Link to="/forgot-password" className="text-saffron underline">
+                  Forgot password
+                </Link>{' '}
+                from the sign-in page if you are locked out.
+              </p>
+              <label className="block text-sm">
+                <span className="mb-1 block text-slate">New password</span>
+                <input name="password" type="password" required autoComplete="new-password" className="mem-field" />
+              </label>
+              <label className="block text-sm">
+                <span className="mb-1 block text-slate">Confirm password</span>
+                <input name="confirm" type="password" required autoComplete="new-password" className="mem-field" />
+              </label>
+              {passwordError && <p className="text-sm text-lotus">{passwordError}</p>}
+              {passwordMsg && <p className="text-sm text-temple">{passwordMsg}</p>}
+              <Button type="submit">Update password</Button>
+            </form>
+
+            <div className="rounded-2xl border border-ink/8 bg-paper p-6 lg:col-span-2">
               <h2 className="font-display text-2xl text-night">How this portal works</h2>
               <ul className="mt-4 space-y-3 text-sm leading-relaxed text-slate">
                 <li>Register → temple sees your household in the directory (needs review).</li>

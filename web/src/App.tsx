@@ -2,6 +2,7 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { Layout } from './components/layout/Layout'
 import { ScrollToTop } from './components/layout/ScrollToTop'
 import { ProtectedRoute } from './components/auth/ProtectedRoute'
+import { AuthRecoveryListener } from './components/auth/AuthRecoveryListener'
 import { HomePage } from './pages/HomePage'
 import { AboutPage } from './pages/AboutPage'
 import { EventsPage } from './pages/EventsPage'
@@ -14,6 +15,8 @@ import { DonatePage } from './pages/DonatePage'
 import { ContactPage } from './pages/ContactPage'
 import { LoginPage } from './pages/LoginPage'
 import { SignupPage } from './pages/SignupPage'
+import { ForgotPasswordPage } from './pages/ForgotPasswordPage'
+import { ResetPasswordPage } from './pages/ResetPasswordPage'
 import { MemberPage } from './pages/MemberPage'
 import { AdminLayout } from './pages/admin/AdminLayout'
 import { AdminOverview } from './pages/admin/AdminOverview'
@@ -35,6 +38,7 @@ export default function App() {
   return (
     <BrowserRouter>
       <ScrollToTop />
+      <AuthRecoveryListener />
       <Routes>
         <Route element={<Layout />}>
           <Route index element={<HomePage />} />
@@ -49,6 +53,8 @@ export default function App() {
           <Route path="contact" element={<ContactPage />} />
           <Route path="login" element={<LoginPage />} />
           <Route path="signup" element={<SignupPage />} />
+          <Route path="forgot-password" element={<ForgotPasswordPage />} />
+          <Route path="reset-password" element={<ResetPasswordPage />} />
           <Route
             path="member"
             element={

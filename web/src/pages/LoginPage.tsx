@@ -1,25 +1,34 @@
 import { useState, type FormEvent } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { Eye, EyeOff } from 'lucide-react'
 import { useAuthStore } from '../store/authStore'
 import { Button } from '../components/ui/Button'
+import { AuthField, AuthShell } from '../components/auth/AuthShell'
 import { isStaff } from '../lib/permissions'
+import { normalizeEmail } from '../lib/authErrors'
 
 export function LoginPage() {
   const login = useAuthStore((s) => s.login)
   const navigate = useNavigate()
   const location = useLocation()
   const state = location.state as
-    | { from?: string; registered?: boolean; email?: string; message?: string }
+    | { from?: string; registered?: boolean; email?: string; message?: string; reset?: boolean }
     | null
   const from = state?.from
   const [error, setError] = useState('')
   const [notice] = useState(state?.message || '')
+  const [showPassword, setShowPassword] = useState(false)
+  const [busy, setBusy] = useState(false)
 
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
     setError('')
+    setBusy(true)
     const fd = new FormData(e.currentTarget)
-    const result = await login(String(fd.get('email')), String(fd.get('password')))
+    const email = normalizeEmail(String(fd.get('email') || ''))
+    const password = String(fd.get('password') || '')
+    const result = await login(email, password)
+    setBusy(false)
     if (!result.ok) {
       setError(result.error || 'Login failed')
       return
@@ -27,45 +36,41 @@ export function LoginPage() {
     const user = useAuthStore.getState().currentUser
     const staff = isStaff(user?.role)
     if (staff) {
-      navigate(from?.startsWith('/admin') ? from : '/admin')
+      navigate(from?.startsWith('/admin') ? from : '/admin', { replace: true })
       return
     }
-    // Login without a household → finish registration
     if (!user?.householdId) {
       navigate('/signup', {
         replace: true,
-        state: { completeHousehold: true, email: user?.email },
+        state: {
+          completeHousehold: true,
+          email: user?.email,
+          message: 'Finish your household details to open the family portal.',
+        },
       })
       return
     }
-    if (from?.startsWith('/admin')) {
-      navigate('/member')
-      return
-    }
-    navigate(from || '/member')
+    navigate(from?.startsWith('/admin') ? '/member' : from || '/member', { replace: true })
   }
 
   return (
-    <div className="mx-auto grid min-h-[70vh] max-w-5xl items-center gap-8 px-4 py-12 md:grid-cols-2 md:gap-12 md:px-6 md:py-16">
-      <div>
-        <p className="text-xs uppercase tracking-[0.22em] text-temple">Sign in</p>
-        <h1 className="mt-3 font-display text-3xl text-night sm:text-4xl md:text-5xl">Welcome back</h1>
-        <p className="mt-3 max-w-md text-sm text-slate sm:mt-4 sm:text-base">
-          Household accounts open the family portal. Temple staff open the dashboard only.
-        </p>
-      </div>
+    <AuthShell
+      eyebrow="Sign in"
+      title="Welcome back"
+      subtitle="Household accounts open the family portal. Temple staff open the dashboard only."
+      footer={
+        <>
+          New family?{' '}
+          <Link to="/signup" className="font-medium text-saffron hover:underline">
+            Register your household
+          </Link>
+        </>
+      }
+    >
+      <form onSubmit={onSubmit} className="space-y-4">
+        {notice && <p className="auth-ok">{notice}</p>}
 
-      <form
-        onSubmit={onSubmit}
-        className="space-y-4 rounded-2xl bg-white p-6 shadow-[0_12px_40px_rgba(7,19,31,0.08)] sm:p-8"
-      >
-        {notice && (
-          <p className="rounded-xl border border-saffron/25 bg-saffron/10 px-3 py-2.5 text-sm text-night">
-            {notice}
-          </p>
-        )}
-        <label className="block text-sm">
-          <span className="mb-1.5 block text-slate">Email</span>
+        <AuthField label="Email">
           <input
             name="email"
             type="email"
@@ -73,44 +78,43 @@ export function LoginPage() {
             autoComplete="email"
             defaultValue={state?.email || ''}
             className="auth-field"
+            placeholder="you@email.com"
           />
-        </label>
-        <label className="block text-sm">
-          <span className="mb-1.5 block text-slate">Password</span>
-          <input
-            name="password"
-            type="password"
-            required
-            autoComplete="current-password"
-            className="auth-field"
-          />
-        </label>
-        {error && <p className="text-sm text-lotus">{error}</p>}
-        <Button type="submit" className="w-full">
-          Sign in
-        </Button>
-        <p className="text-center text-sm text-slate">
-          New family?{' '}
-          <Link to="/signup" className="text-saffron hover:underline">
-            Register your household
-          </Link>
-        </p>
-      </form>
+        </AuthField>
 
-      <style>{`
-        .auth-field {
-          width: 100%;
-          border-radius: 0.5rem;
-          border: 1px solid rgba(16, 32, 51, 0.15);
-          background: #f7fafc;
-          padding: 0.8rem 0.9rem;
-          font-size: 16px;
-          outline: none;
-        }
-        .auth-field:focus {
-          border-color: #e89720;
-        }
-      `}</style>
-    </div>
+        <AuthField label="Password">
+          <div className="relative">
+            <input
+              name="password"
+              type={showPassword ? 'text' : 'password'}
+              required
+              autoComplete="current-password"
+              className="auth-field pr-12"
+              placeholder="Your password"
+            />
+            <button
+              type="button"
+              className="absolute inset-y-0 right-0 px-3 text-slate hover:text-night"
+              onClick={() => setShowPassword((v) => !v)}
+              aria-label={showPassword ? 'Hide password' : 'Show password'}
+            >
+              {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            </button>
+          </div>
+        </AuthField>
+
+        <div className="flex justify-end">
+          <Link to="/forgot-password" className="text-sm font-medium text-saffron hover:underline">
+            Forgot password?
+          </Link>
+        </div>
+
+        {error && <p className="auth-error">{error}</p>}
+
+        <Button type="submit" className="w-full" disabled={busy}>
+          {busy ? 'Signing in…' : 'Sign in'}
+        </Button>
+      </form>
+    </AuthShell>
   )
 }

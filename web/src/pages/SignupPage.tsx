@@ -1,9 +1,10 @@
 import { useState, type FormEvent } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { Plus, Trash2 } from 'lucide-react'
+import { Eye, EyeOff, Plus, Trash2 } from 'lucide-react'
 import { useAuthStore } from '../store/authStore'
 import { Button } from '../components/ui/Button'
 import { AvatarUpload } from '../components/ui/AvatarUpload'
+import { normalizeEmail } from '../lib/authErrors'
 
 type MemberDraft = { name: string; relation: string; age: string; photo: string }
 
@@ -12,13 +13,16 @@ export function SignupPage() {
   const currentUser = useAuthStore((s) => s.currentUser)
   const navigate = useNavigate()
   const location = useLocation()
+  const state = location.state as
+    | { completeHousehold?: boolean; email?: string; message?: string }
+    | null
   const completeHousehold = Boolean(
-    (location.state as { completeHousehold?: boolean } | null)?.completeHousehold ||
-      (currentUser && !currentUser.householdId && currentUser.role === 'member'),
+    state?.completeHousehold || (currentUser && !currentUser.householdId && currentUser.role === 'member'),
   )
-  const prefillEmail =
-    (location.state as { email?: string } | null)?.email || currentUser?.email || ''
+  const prefillEmail = state?.email || currentUser?.email || ''
   const [error, setError] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
   const [avatar, setAvatar] = useState('')
   const [members, setMembers] = useState<MemberDraft[]>([
     { name: '', relation: 'Head of household', age: '', photo: '' },
@@ -28,12 +32,25 @@ export function SignupPage() {
     e.preventDefault()
     setError('')
     const fd = new FormData(e.currentTarget)
+    const password = String(fd.get('password') || '')
+    const confirm = String(fd.get('confirmPassword') || '')
+    if (password !== confirm) {
+      setError('Passwords do not match.')
+      return
+    }
+    if (password.length < 6) {
+      setError('Password must be at least 6 characters.')
+      return
+    }
+
     const primaryName = String(fd.get('primaryName') || '')
+    const email = normalizeEmail(String(fd.get('email') || ''))
+    setBusy(true)
     const result = await signupHousehold({
       familyName: String(fd.get('familyName') || ''),
       primaryName,
-      email: String(fd.get('email') || ''),
-      password: String(fd.get('password') || ''),
+      email,
+      password,
       phone: String(fd.get('phone') || ''),
       addressLine1: String(fd.get('addressLine1') || ''),
       addressLine2: String(fd.get('addressLine2') || ''),
@@ -52,16 +69,16 @@ export function SignupPage() {
           photo: m.photo || (index === 0 ? avatar : undefined) || undefined,
         })),
     })
+    setBusy(false)
     if (!result.ok) {
       setError(result.error || 'Signup failed')
       return
     }
-    navigate('/login', {
+    navigate('/member', {
       replace: true,
       state: {
-        registered: true,
-        email: String(fd.get('email') || ''),
-        message: 'Household registered. Sign in to open your family portal.',
+        welcome: true,
+        message: 'Welcome — your household is registered. The temple team may review details shortly.',
       },
     })
   }
@@ -73,9 +90,10 @@ export function SignupPage() {
         {completeHousehold ? 'Finish household setup' : 'Register your family'}
       </h1>
       <p className="mt-3 max-w-2xl text-sm text-slate sm:mt-4 sm:text-base">
-        {completeHousehold
-          ? 'Your login exists, but no family record was linked yet. Submit your household details once, then sign in again.'
-          : 'One account for the household — photo, address, family members, invoices, and payment history sync to the temple directory when you register. After registering you’ll sign in to open the portal.'}
+        {state?.message ||
+          (completeHousehold
+            ? 'Your login exists, but no family record is linked yet. Submit household details once to open the portal.'
+            : 'One login for the household — photo, address, and family members sync to the temple directory. You’ll be signed in when registration completes.')}
       </p>
 
       <form
@@ -89,9 +107,7 @@ export function SignupPage() {
             value={avatar}
             onChange={(url) => {
               setAvatar(url)
-              setMembers((list) =>
-                list.map((m, i) => (i === 0 ? { ...m, photo: url } : m)),
-              )
+              setMembers((list) => list.map((m, i) => (i === 0 ? { ...m, photo: url } : m)))
             }}
             label="Add color photo"
           />
@@ -109,14 +125,34 @@ export function SignupPage() {
             defaultValue={prefillEmail}
             readOnly={Boolean(prefillEmail && completeHousehold)}
             className="auth-field"
+            autoComplete="email"
           />
-          <input name="phone" required placeholder="Phone" className="auth-field" />
+          <input name="phone" required placeholder="Phone" className="auth-field" autoComplete="tel" />
+          <div className="relative md:col-span-2">
+            <input
+              name="password"
+              type={showPassword ? 'text' : 'password'}
+              required
+              placeholder={completeHousehold ? 'Your password (to confirm)' : 'Password (min 6)'}
+              className="auth-field pr-12"
+              autoComplete={completeHousehold ? 'current-password' : 'new-password'}
+            />
+            <button
+              type="button"
+              className="absolute inset-y-0 right-0 px-3 text-slate hover:text-night"
+              onClick={() => setShowPassword((v) => !v)}
+              aria-label={showPassword ? 'Hide password' : 'Show password'}
+            >
+              {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            </button>
+          </div>
           <input
-            name="password"
-            type="password"
+            name="confirmPassword"
+            type={showPassword ? 'text' : 'password'}
             required
-            placeholder={completeHousehold ? 'Your password (to confirm)' : 'Password (min 6)'}
+            placeholder="Confirm password"
             className="auth-field md:col-span-2"
+            autoComplete="new-password"
           />
         </section>
 
@@ -136,9 +172,7 @@ export function SignupPage() {
               type="button"
               size="sm"
               variant="line"
-              onClick={() =>
-                setMembers((m) => [...m, { name: '', relation: 'Family', age: '', photo: '' }])
-              }
+              onClick={() => setMembers((m) => [...m, { name: '', relation: 'Family', age: '', photo: '' }])}
             >
               <Plus className="h-4 w-4" /> Add member
             </Button>
@@ -152,9 +186,7 @@ export function SignupPage() {
                       name={member.name || `Member ${index + 1}`}
                       value={member.photo}
                       onChange={(url) =>
-                        setMembers((list) =>
-                          list.map((m, i) => (i === index ? { ...m, photo: url } : m)),
-                        )
+                        setMembers((list) => list.map((m, i) => (i === index ? { ...m, photo: url } : m)))
                       }
                       label="Member photo"
                     />
@@ -207,14 +239,34 @@ export function SignupPage() {
           </div>
         </section>
 
-        {error && <p className="text-sm text-lotus">{error}</p>}
-        <Button type="submit" className="w-full md:w-auto">
-          Create household account
+        {error && (
+          <p className="rounded-xl border border-lotus/25 bg-lotus/10 px-3 py-2.5 text-sm text-[#5c3d22]">
+            {error}{' '}
+            {/already exists|sign in|forgot password/i.test(error) ? (
+              <>
+                <Link to="/login" className="font-medium text-saffron underline">
+                  Sign in
+                </Link>
+                {' · '}
+                <Link to="/forgot-password" className="font-medium text-saffron underline">
+                  Forgot password
+                </Link>
+              </>
+            ) : null}
+          </p>
+        )}
+
+        <Button type="submit" className="w-full md:w-auto" disabled={busy}>
+          {busy ? 'Saving…' : completeHousehold ? 'Save household & open portal' : 'Create household account'}
         </Button>
         <p className="text-center text-sm text-slate md:text-left">
           Already registered?{' '}
           <Link to="/login" className="text-saffron hover:underline">
             Sign in
+          </Link>
+          {' · '}
+          <Link to="/forgot-password" className="text-saffron hover:underline">
+            Forgot password
           </Link>
         </p>
       </form>
@@ -230,7 +282,12 @@ export function SignupPage() {
           outline: none;
         }
         .auth-field:focus {
-          border-color: #e28a2e;
+          border-color: #e89720;
+          box-shadow: 0 0 0 3px rgba(232, 151, 32, 0.15);
+        }
+        .auth-field:read-only {
+          background: #eef2f6;
+          color: #4a5568;
         }
       `}</style>
     </div>

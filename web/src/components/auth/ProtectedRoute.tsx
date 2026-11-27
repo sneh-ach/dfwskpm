@@ -17,7 +17,16 @@ export function ProtectedRoute({
   memberOnly?: boolean
 }) {
   const user = useAuthStore((s) => s.currentUser)
+  const authReady = useAuthStore((s) => s.authReady)
   const location = useLocation()
+
+  if (!authReady) {
+    return (
+      <div className="mx-auto max-w-lg px-4 py-24 text-center text-sm text-slate">
+        Checking your session…
+      </div>
+    )
+  }
 
   if (!user) {
     return <Navigate to="/login" replace state={{ from: location.pathname }} />

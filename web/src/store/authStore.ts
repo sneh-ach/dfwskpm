@@ -8,6 +8,7 @@ import { isAdmin, isStaff } from '../lib/permissions'
 import { supabase, supabaseConfigured } from '../lib/supabase'
 import { ensureSessionUser, fetchProfile, profileToUser } from '../lib/supabaseAuth'
 import { hydrateHousehold } from '../lib/supabaseHouseholds'
+import { friendlyAuthError, normalizeEmail } from '../lib/authErrors'
 
 type AuthResult = { ok: boolean; error?: string }
 
@@ -63,6 +64,8 @@ interface AuthState {
   }) => AuthResult
   setUserRole: (userId: string, role: Role) => AuthResult
   deleteUser: (userId: string) => AuthResult
+  requestPasswordReset: (email: string) => Promise<AuthResult>
+  updatePassword: (password: string) => Promise<AuthResult>
 }
 
 function publicUser(user: User): Omit<User, 'password'> {
@@ -123,9 +126,16 @@ export const useAuthStore = create<AuthState>()(
       },
 
       login: async (email, password) => {
+        const cleanEmail = normalizeEmail(email)
+        if (!cleanEmail || !password) {
+          return { ok: false, error: 'Enter both email and password.' }
+        }
         if (supabase) {
-          const { data, error } = await supabase.auth.signInWithPassword({ email, password })
-          if (error) return { ok: false, error: error.message }
+          const { data, error } = await supabase.auth.signInWithPassword({
+            email: cleanEmail,
+            password,
+          })
+          if (error) return { ok: false, error: friendlyAuthError(error.message) }
           const profile = data.user ? await fetchProfile(data.user.id) : null
           const user = profile
             ? profileToUser(profile)
@@ -147,9 +157,9 @@ export const useAuthStore = create<AuthState>()(
         }
 
         const user = get().users.find(
-          (u) => u.email.toLowerCase() === email.toLowerCase() && u.password === password,
+          (u) => u.email.toLowerCase() === cleanEmail && u.password === password,
         )
-        if (!user) return { ok: false, error: 'Invalid email or password.' }
+        if (!user) return { ok: false, error: friendlyAuthError('Invalid login credentials') }
         set({ currentUser: publicUser(user) })
         return { ok: true }
       },
@@ -179,39 +189,58 @@ export const useAuthStore = create<AuthState>()(
         const householdPhoto = photo || avatar
 
         if (supabase) {
+          const cleanEmail = normalizeEmail(email)
           // Re-use session when an account exists but household was never linked
           let userId = (await supabase.auth.getSession()).data.session?.user?.id
           const sessionEmail = (await supabase.auth.getSession()).data.session?.user?.email
 
           if (!userId) {
             const { data: authData, error: authError } = await supabase.auth.signUp({
-              email,
+              email: cleanEmail,
               password,
               options: {
                 data: { name: primaryName, role: 'member' },
+                emailRedirectTo: `${window.location.origin}/login`,
               },
             })
             if (authError) {
-              // Account may already exist from a partial signup — try signing in
               const { data: signedIn, error: signInError } = await supabase.auth.signInWithPassword({
-                email,
+                email: cleanEmail,
                 password,
               })
               if (signInError || !signedIn.user) {
-                return { ok: false, error: authError.message }
+                return {
+                  ok: false,
+                  error: friendlyAuthError(
+                    authError.message.includes('already') || authError.message.includes('registered')
+                      ? 'An account with this email already exists. Sign in with your password, or use Forgot password.'
+                      : authError.message,
+                  ),
+                }
               }
               userId = signedIn.user.id
             } else {
               userId = authData.user?.id
-              if (!authData.session) {
-                return {
-                  ok: false,
-                  error:
-                    'Check your email to confirm the account, then sign in and finish household registration.',
+              // Some Supabase projects return a user without a session (e.g. duplicate email
+              // "fake success"). Never continue without a real session.
+              if (!authData.session || !userId) {
+                const { data: signedIn, error: signInError } = await supabase.auth.signInWithPassword({
+                  email: cleanEmail,
+                  password,
+                })
+                if (signInError || !signedIn.user) {
+                  return {
+                    ok: false,
+                    error: friendlyAuthError(
+                      signInError?.message ||
+                        'Could not start a session after registration. Try signing in, or use Forgot password.',
+                    ),
+                  }
                 }
+                userId = signedIn.user.id
               }
             }
-          } else if (sessionEmail && sessionEmail.toLowerCase() !== email.toLowerCase()) {
+          } else if (sessionEmail && normalizeEmail(sessionEmail) !== cleanEmail) {
             return { ok: false, error: 'You are signed in as a different email. Sign out first.' }
           }
 
@@ -222,7 +251,7 @@ export const useAuthStore = create<AuthState>()(
           const { data: householdId, error: rpcError } = await supabase.rpc('register_household', {
             p_family_name: familyName,
             p_primary_name: primaryName,
-            p_email: email,
+            p_email: cleanEmail,
             p_phone: phone,
             p_address_line1: addressLine1,
             p_address_line2: addressLine2 || '',
@@ -241,16 +270,28 @@ export const useAuthStore = create<AuthState>()(
           })
 
           if (rpcError || !householdId) {
-            return { ok: false, error: rpcError?.message || 'Could not create household.' }
+            return { ok: false, error: friendlyAuthError(rpcError?.message, 'Could not create household.') }
           }
 
           const hid = String(householdId)
           await hydrateHousehold(hid)
-          queueWelcomeEmail(email, primaryName, familyName, hid)
+          queueWelcomeEmail(cleanEmail, primaryName, familyName, hid)
 
-          // Always send new households to sign-in
-          await supabase.auth.signOut()
-          set({ currentUser: null })
+          const profile = await fetchProfile(userId)
+          set({
+            currentUser: profile
+              ? profileToUser(profile)
+              : {
+                  id: userId,
+                  name: primaryName,
+                  email: cleanEmail,
+                  phone,
+                  avatar: avatar || householdPhoto,
+                  role: 'member',
+                  householdId: hid,
+                  createdAt: new Date().toISOString(),
+                },
+          })
           return { ok: true }
         }
 
@@ -294,7 +335,36 @@ export const useAuthStore = create<AuthState>()(
           householdId,
           createdAt: new Date().toISOString(),
         }
-        set((s) => ({ users: [...s.users, user], currentUser: null }))
+        set((s) => ({ users: [...s.users, user], currentUser: publicUser(user) }))
+        return { ok: true }
+      },
+
+      requestPasswordReset: async (email) => {
+        const cleanEmail = normalizeEmail(email)
+        if (!cleanEmail) return { ok: false, error: 'Enter the email for your household login.' }
+        if (!supabase) {
+          return { ok: false, error: 'Password reset is available when Supabase is connected.' }
+        }
+        const redirectTo = `${window.location.origin}/reset-password`
+        const { error } = await supabase.auth.resetPasswordForEmail(cleanEmail, { redirectTo })
+        if (error) return { ok: false, error: friendlyAuthError(error.message) }
+        return { ok: true }
+      },
+
+      updatePassword: async (password) => {
+        if (!password || password.length < 6) {
+          return { ok: false, error: 'Password must be at least 6 characters.' }
+        }
+        if (!supabase) {
+          const current = get().currentUser
+          if (!current) return { ok: false, error: 'Sign in first.' }
+          set((s) => ({
+            users: s.users.map((u) => (u.id === current.id ? { ...u, password } : u)),
+          }))
+          return { ok: true }
+        }
+        const { error } = await supabase.auth.updateUser({ password })
+        if (error) return { ok: false, error: friendlyAuthError(error.message) }
         return { ok: true }
       },
 
