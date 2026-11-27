@@ -186,7 +186,7 @@ export function MemberPage() {
   ]
 
   return (
-    <div>
+    <div className="max-w-[100vw] overflow-x-clip">
       <section className="bg-ink px-4 py-7 text-white sm:py-10 md:px-6 md:py-12">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4">
           <div className="flex min-w-0 items-center gap-3.5 sm:gap-4">
@@ -237,7 +237,7 @@ export function MemberPage() {
         </div>
       </div>
 
-      <div className="mx-auto max-w-7xl px-4 py-7 sm:py-10 md:px-6 md:py-14">
+      <div className="mx-auto max-w-7xl overflow-x-clip px-4 py-7 sm:py-10 md:px-6 md:py-14">
         {welcomeBanner && (
           <div className="mb-6 flex items-start justify-between gap-3 rounded-2xl border border-saffron/30 bg-saffron/10 p-4 text-sm text-night sm:mb-8 sm:p-5">
             <p className="font-medium">{welcomeBanner}</p>
@@ -956,11 +956,14 @@ export function MemberPage() {
       <style>{`
         .mem-field {
           width: 100%;
+          max-width: 100%;
+          min-width: 0;
           border-radius: 0.5rem;
           border: 1px solid rgba(23, 32, 51, 0.15);
           background: #fff;
           padding: 0.75rem 0.9rem;
           outline: none;
+          box-sizing: border-box;
         }
         .mem-field:focus { border-color: #e89720; }
       `}</style>

@@ -15,8 +15,8 @@ export function AuthShell({
   footer?: ReactNode
 }) {
   return (
-    <div className="mx-auto grid min-h-[70vh] max-w-5xl items-center gap-8 px-4 py-12 md:grid-cols-2 md:gap-12 md:px-6 md:py-16">
-      <div>
+    <div className="mx-auto grid min-h-[70vh] max-w-5xl min-w-0 items-center gap-8 overflow-x-clip px-4 py-12 md:grid-cols-2 md:gap-12 md:px-6 md:py-16">
+      <div className="min-w-0">
         <p className="text-xs uppercase tracking-[0.22em] text-temple">{eyebrow}</p>
         <h1 className="mt-3 font-display text-3xl text-night sm:text-4xl md:text-5xl">{title}</h1>
         <p className="mt-3 max-w-md text-sm text-slate sm:mt-4 sm:text-base">{subtitle}</p>
@@ -27,7 +27,7 @@ export function AuthShell({
         </p>
       </div>
 
-      <div className="rounded-2xl bg-white p-6 shadow-[0_12px_40px_rgba(7,19,31,0.08)] sm:p-8">
+      <div className="min-w-0 rounded-2xl bg-white p-5 shadow-[0_12px_40px_rgba(7,19,31,0.08)] sm:p-8">
         {children}
         {footer ? <div className="mt-5 border-t border-ink/8 pt-4 text-center text-sm text-slate">{footer}</div> : null}
       </div>
@@ -35,6 +35,9 @@ export function AuthShell({
       <style>{`
         .auth-field {
           width: 100%;
+          max-width: 100%;
+          min-width: 0;
+          box-sizing: border-box;
           border-radius: 0.5rem;
           border: 1px solid rgba(16, 32, 51, 0.15);
           background: #f7fafc;

@@ -105,7 +105,7 @@ export function AdminOverview() {
   ]
 
   return (
-    <div className="pb-4">
+    <div className="min-w-0 overflow-x-clip pb-4">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0">
           <p className="text-[11px] uppercase tracking-[0.2em] text-marigold">Temple dashboard</p>

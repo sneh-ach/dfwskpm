@@ -274,6 +274,9 @@ export function SignupPage() {
       <style>{`
         .auth-field {
           width: 100%;
+          max-width: 100%;
+          min-width: 0;
+          box-sizing: border-box;
           border-radius: 0.5rem;
           border: 1px solid rgba(16, 32, 51, 0.15);
           background: #f7fafc;

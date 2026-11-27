@@ -138,9 +138,9 @@ export function AdminHouseholds() {
   const showDetailMobile = Boolean(selectedId)
 
   return (
-    <div className="pb-2">
+    <div className="min-w-0 overflow-x-clip pb-2">
       <div className={showDetailMobile ? 'hidden lg:flex lg:flex-wrap lg:items-center lg:justify-between lg:gap-3' : 'flex flex-wrap items-center justify-between gap-3'}>
-        <div>
+        <div className="min-w-0">
           <h1 className="font-display text-3xl text-white sm:text-4xl">Households</h1>
           <p className="mt-1.5 text-sm text-mist/70 sm:mt-2 sm:text-base">
             Family directory — addresses, members, and donation history in one place.
@@ -228,7 +228,7 @@ export function AdminHouseholds() {
         />
       </div>
 
-      <div className="mt-6 grid gap-6 lg:grid-cols-[300px_1fr]">
+      <div className="mt-6 grid min-w-0 gap-6 lg:grid-cols-[minmax(0,300px)_minmax(0,1fr)]">
         <div className={showDetailMobile ? 'hidden space-y-2 lg:block' : 'space-y-2'}>
           {filtered.map((hh) => (
             <button
@@ -424,8 +424,8 @@ export function AdminHouseholds() {
               </form>
             </div>
 
-            <div>
-              <div className="mb-3 flex items-center justify-between gap-2">
+            <div className="min-w-0">
+              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                 <h3 className="font-display text-xl text-white">Invoices & payments</h3>
                 <Link to={`/admin/billing?household=${selected.id}`} className="text-xs text-marigold hover:underline">
                   Open billing
@@ -440,37 +440,37 @@ export function AdminHouseholds() {
                   })
                   .reduce((sum, i) => sum + i.amount, 0)
                 return (
-              <div className="mb-4 space-y-2">
-                <p className="text-sm text-mist/70">
-                  Amount owed:{' '}
-                  <span className="font-medium text-white">${due.toLocaleString()}</span>
-                </p>
-                {hhInvoices.length === 0 && (
-                  <p className="text-sm text-mist/55">No invoices yet for this family.</p>
-                )}
-                {hhInvoices.map((inv) => (
-                    <div key={inv.id} className="rounded-lg border border-white/10 px-3 py-2.5 text-sm">
-                      <div className="flex items-start justify-between gap-2">
-                        <p className="text-white">{inv.title}</p>
-                        <p className="shrink-0 font-medium tabular-nums text-white">
-                          ${inv.amount.toLocaleString()}
+                  <div className="mb-4 space-y-2">
+                    <p className="text-sm text-mist/70">
+                      Amount owed:{' '}
+                      <span className="font-medium text-white">${due.toLocaleString()}</span>
+                    </p>
+                    {hhInvoices.length === 0 && (
+                      <p className="text-sm text-mist/55">No invoices yet for this family.</p>
+                    )}
+                    {hhInvoices.map((inv) => (
+                      <div key={inv.id} className="rounded-lg border border-white/10 px-3 py-2.5 text-sm">
+                        <div className="flex items-start justify-between gap-2">
+                          <p className="min-w-0 break-words text-white">{inv.title}</p>
+                          <p className="shrink-0 font-medium tabular-nums text-white">
+                            ${inv.amount.toLocaleString()}
+                          </p>
+                        </div>
+                        <p className="mt-0.5 text-mist/55">
+                          {inv.invoiceNumber} · {effectiveInvoiceStatus(inv)}
                         </p>
                       </div>
-                      <p className="mt-0.5 text-mist/55">
-                        {inv.invoiceNumber} · {effectiveInvoiceStatus(inv)}
-                      </p>
-                    </div>
-                  ))}
-                {transactions
-                  .filter((t) => t.householdId === selected.id)
-                  .slice(0, 5)
-                  .map((t) => (
-                    <div key={t.id} className="text-xs text-mist/50">
-                      {t.status === 'pending' ? 'Pending' : 'Payment'} ${t.amount} · {t.method} ·{' '}
-                      {formatDate(t.createdAt)}
-                    </div>
-                  ))}
-              </div>
+                    ))}
+                    {transactions
+                      .filter((t) => t.householdId === selected.id)
+                      .slice(0, 5)
+                      .map((t) => (
+                        <div key={t.id} className="text-xs text-mist/50">
+                          {t.status === 'pending' ? 'Pending' : 'Payment'} ${t.amount} · {t.method} ·{' '}
+                          {formatDate(t.createdAt)}
+                        </div>
+                      ))}
+                  </div>
                 )
               })()}
               <h3 className="mb-3 font-display text-xl text-white">Donation history</h3>

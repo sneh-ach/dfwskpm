@@ -11,9 +11,9 @@ export function Footer() {
   const [note, setNote] = useState('')
 
   return (
-    <footer className="mt-auto bg-night text-mist">
-      <div className="mx-auto grid max-w-7xl gap-8 px-4 py-10 sm:gap-10 sm:py-14 md:grid-cols-2 md:px-6 lg:grid-cols-4 lg:py-16">
-        <div className="lg:col-span-1">
+    <footer className="mt-auto max-w-[100vw] overflow-x-clip bg-night text-mist">
+      <div className="mx-auto grid max-w-7xl min-w-0 gap-8 px-4 py-10 sm:gap-10 sm:py-14 md:grid-cols-2 md:px-6 lg:grid-cols-4 lg:py-16">
+        <div className="min-w-0 lg:col-span-1">
           <p className="font-display text-xl text-white sm:text-2xl">{settings.templeName}</p>
           <p className="mt-2 text-sm leading-relaxed text-mist/70 sm:mt-3">{settings.tagline}</p>
           <a

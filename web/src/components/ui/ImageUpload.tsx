@@ -55,7 +55,7 @@ export function ImageUpload({
           value={value.startsWith('data:') ? '' : value}
           onChange={(e) => onChange(e.target.value)}
           placeholder="Or paste image URL /img/..."
-          className="min-w-[220px] flex-1 rounded-md border border-white/12 bg-white/4 px-3 py-2 text-sm text-white outline-none"
+          className="min-w-0 flex-1 rounded-md border border-white/12 bg-white/4 px-3 py-2 text-sm text-white outline-none"
         />
       </div>
       {value && (

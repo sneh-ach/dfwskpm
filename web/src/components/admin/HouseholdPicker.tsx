@@ -62,7 +62,7 @@ export function HouseholdPicker({
   }, [open])
 
   return (
-    <div ref={rootRef} className="relative">
+    <div ref={rootRef} className="relative min-w-0 w-full">
       <input type="hidden" name={name} value={value} required={required} />
       <button
         type="button"
@@ -71,7 +71,7 @@ export function HouseholdPicker({
           setQuery('')
         }}
         className={cn(
-          'flex w-full items-center justify-between gap-2 rounded-lg border px-3 py-2.5 text-left text-sm outline-none transition',
+          'flex w-full min-w-0 items-center justify-between gap-2 rounded-lg border px-3 py-2.5 text-left text-sm outline-none transition',
           dark
             ? 'border-white/12 bg-white/4 text-white hover:border-marigold/40'
             : 'border-ink/15 bg-paper text-night hover:border-saffron',

@@ -45,7 +45,7 @@ export function TeamGrid({
   return (
     <div>
       {activeGroups.length > 1 && (
-        <div className="snap-row mb-6 flex gap-2 pb-1 md:mb-10 md:flex-wrap md:overflow-visible">
+        <div className="snap-row mb-6 flex max-w-full gap-2 pb-1 md:mb-10 md:flex-wrap md:overflow-visible">
           {activeGroups.map((group) => (
             <a
               key={group}

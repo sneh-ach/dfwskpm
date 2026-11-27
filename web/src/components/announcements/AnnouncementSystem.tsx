@@ -52,11 +52,11 @@ export function AnnouncementBanner() {
   const moreHref = banner.linkUrl || '/news'
 
   return (
-    <div className={`${tone}`}>
-      <div className="mx-auto flex max-w-7xl items-start gap-3 px-4 py-2.5 md:px-6">
+    <div className={`max-w-[100vw] overflow-x-clip ${tone}`}>
+      <div className="mx-auto flex max-w-7xl min-w-0 items-start gap-3 px-4 py-2.5 md:px-6">
         <div className="min-w-0 flex-1 text-sm">
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-            <strong className="font-semibold">{banner.title}</strong>
+            <strong className="break-words font-semibold">{banner.title}</strong>
             <span className={`hidden sm:inline ${muted}`}>·</span>
             <span className="line-clamp-1 opacity-90 sm:line-clamp-none">
               {expanded ? null : banner.body.slice(0, 110)}

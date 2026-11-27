@@ -47,7 +47,7 @@ export function CalendarPage() {
   const active = events.find((e) => e.id === activeId) || selectedEvents[0] || null
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-8 sm:py-12 md:px-6 md:py-16">
+    <div className="mx-auto max-w-7xl overflow-x-clip px-4 py-8 sm:py-12 md:px-6 md:py-16">
       <div className="flex flex-wrap items-end justify-between gap-3 sm:gap-4">
         <SectionHeading
           eyebrow="Calendar"
@@ -59,11 +59,11 @@ export function CalendarPage() {
         </Link>
       </div>
 
-      <div className="mt-10 grid gap-8 xl:grid-cols-[1.25fr_0.95fr]">
-        <div className="rounded-2xl border border-ink/8 bg-white p-4 md:p-6">
-          <div className="mb-6 flex items-center justify-between">
-            <h3 className="font-display text-2xl">{format(cursor, 'MMMM yyyy')}</h3>
-            <div className="flex gap-2">
+      <div className="mt-10 grid min-w-0 gap-8 xl:grid-cols-[minmax(0,1.25fr)_minmax(0,0.95fr)]">
+        <div className="min-w-0 overflow-hidden rounded-2xl border border-ink/8 bg-white p-3 sm:p-4 md:p-6">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-2 sm:mb-6">
+            <h3 className="min-w-0 font-display text-xl sm:text-2xl">{format(cursor, 'MMMM yyyy')}</h3>
+            <div className="flex shrink-0 gap-2">
               <Button size="sm" variant="line" onClick={() => setCursor((d) => subMonths(d, 1))}>
                 <ChevronLeft className="h-4 w-4" />
               </Button>
@@ -84,15 +84,18 @@ export function CalendarPage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-7 gap-1 text-center text-xs font-semibold uppercase tracking-wider text-slate/60">
-            {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((d) => (
-              <div key={d} className="py-2">
-                {d}
+          <div className="grid grid-cols-7 gap-0.5 text-center text-[10px] font-semibold uppercase tracking-wider text-slate/60 sm:gap-1 sm:text-xs">
+            {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((d, i) => (
+              <div key={`${d}-${i}`} className="py-1.5 sm:py-2">
+                <span className="sm:hidden">{d}</span>
+                <span className="hidden sm:inline">
+                  {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][i]}
+                </span>
               </div>
             ))}
           </div>
 
-          <div className="grid grid-cols-7 gap-1">
+          <div className="grid grid-cols-7 gap-0.5 sm:gap-1">
             {days.map((day) => {
               const list = dayEvents(day)
               const inMonth = isSameMonth(day, cursor)
@@ -110,13 +113,13 @@ export function CalendarPage() {
                     }
                   }}
                   className={cn(
-                    'min-h-20 rounded-xl border p-2 text-left transition',
+                    'min-h-12 min-w-0 overflow-hidden rounded-lg border p-1 text-left transition sm:min-h-20 sm:rounded-xl sm:p-2',
                     isSameDay(day, selected) ? 'border-saffron bg-saffron/10' : 'border-transparent hover:bg-paper',
                     !inMonth && 'opacity-35',
                   )}
                 >
-                  <span className="text-sm font-medium">{format(day, 'd')}</span>
-                  <div className="mt-1 space-y-1">
+                  <span className="text-xs font-medium sm:text-sm">{format(day, 'd')}</span>
+                  <div className="mt-0.5 hidden space-y-1 sm:mt-1 sm:block">
                     {list.slice(0, 2).map((e) => (
                       <div
                         key={e.id}
@@ -130,6 +133,19 @@ export function CalendarPage() {
                     ))}
                     {list.length > 2 && <p className="text-[10px] text-slate">+{list.length - 2} more</p>}
                   </div>
+                  {list.length > 0 && (
+                    <div className="mt-1 flex justify-center gap-0.5 sm:hidden">
+                      {list.slice(0, 3).map((e) => (
+                        <span
+                          key={e.id}
+                          className={cn(
+                            'h-1 w-1 rounded-full',
+                            e.id === activeId ? 'bg-saffron' : 'bg-temple/60',
+                          )}
+                        />
+                      ))}
+                    </div>
+                  )}
                 </button>
               )
             })}

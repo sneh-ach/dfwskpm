@@ -82,10 +82,10 @@ export function HomePage() {
       </section>
 
       {/* Visit bar — horizontal snap on phone, 3-col on laptop */}
-      <section className="border-b border-ink/8 bg-white">
+      <section className="overflow-x-clip border-b border-ink/8 bg-white">
         <div className="mx-auto max-w-7xl md:grid md:grid-cols-3 md:divide-x md:divide-ink/8">
           <SnapRow className="md:contents">
-            <div className="snap-item w-[78vw] max-w-xs border-r border-ink/8 px-4 py-4 md:w-auto md:max-w-none md:border-r-0 md:px-6 md:py-5">
+            <div className="snap-item w-[min(78vw,20rem)] shrink-0 border-r border-ink/8 px-4 py-4 md:w-auto md:max-w-none md:shrink md:border-r-0 md:px-6 md:py-5">
               <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-temple">
                 {settings.showOpenNow ? 'Open now' : 'Visit'}
               </p>
@@ -96,19 +96,19 @@ export function HomePage() {
                 {settings.showOpenNow ? settings.openNowDetail : publicSchedule[0]?.time}
               </p>
             </div>
-            <div className="snap-item flex w-[78vw] max-w-xs items-start gap-3 border-r border-ink/8 px-4 py-4 md:w-auto md:max-w-none md:border-r-0 md:px-6 md:py-5">
+            <div className="snap-item flex w-[min(78vw,20rem)] shrink-0 items-start gap-3 border-r border-ink/8 px-4 py-4 md:w-auto md:max-w-none md:shrink md:border-r-0 md:px-6 md:py-5">
               <MapPin className="mt-1 h-4 w-4 shrink-0 text-saffron" />
-              <div>
+              <div className="min-w-0">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-temple">Address</p>
                 <p className="mt-1 text-sm leading-relaxed text-night">{settings.address}</p>
               </div>
             </div>
-            <div className="snap-item flex w-[78vw] max-w-xs items-start gap-3 px-4 py-4 md:w-auto md:max-w-none md:px-6 md:py-5">
+            <div className="snap-item flex w-[min(78vw,20rem)] shrink-0 items-start gap-3 px-4 py-4 md:w-auto md:max-w-none md:shrink md:px-6 md:py-5">
               <Phone className="mt-1 h-4 w-4 shrink-0 text-saffron" />
-              <div>
+              <div className="min-w-0">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-temple">Contact</p>
                 <p className="mt-1 text-sm text-night">{settings.phone}</p>
-                <p className="text-sm text-slate">{settings.email}</p>
+                <p className="truncate text-sm text-slate">{settings.email}</p>
               </div>
             </div>
           </SnapRow>
@@ -117,9 +117,9 @@ export function HomePage() {
 
       {/* Next event — compact on phone */}
       {featuredEvent && (
-        <section className="bg-ink text-white">
-          <div className="mx-auto grid max-w-7xl lg:grid-cols-[1.15fr_0.85fr]">
-            <div className="relative min-h-[200px] overflow-hidden sm:min-h-[280px] lg:min-h-[400px]">
+        <section className="overflow-x-clip bg-ink text-white">
+          <div className="mx-auto grid max-w-7xl min-w-0 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)]">
+            <div className="relative min-h-[200px] min-w-0 overflow-hidden sm:min-h-[280px] lg:min-h-[400px]">
               <img
                 src={featuredEvent.image}
                 alt=""
@@ -127,7 +127,7 @@ export function HomePage() {
               />
               <div className="absolute inset-0 bg-gradient-to-t from-ink via-ink/20 to-transparent" />
             </div>
-            <div className="flex flex-col justify-center px-4 py-8 sm:px-6 sm:py-10 md:px-10 md:py-12">
+            <div className="flex min-w-0 flex-col justify-center px-4 py-8 sm:px-6 sm:py-10 md:px-10 md:py-12">
               <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-marigold sm:text-xs sm:tracking-[0.24em]">
                 Next gathering
               </p>
@@ -156,7 +156,7 @@ export function HomePage() {
       )}
 
       {/* About + schedule */}
-      <section className="section-y mx-auto max-w-7xl px-4 md:px-6">
+      <section className="section-y mx-auto max-w-7xl overflow-x-clip px-4 md:px-6">
         <div className="grid gap-8 lg:grid-cols-[0.95fr_1.05fr] lg:items-center lg:gap-16">
           <div>
             <SectionHeading
@@ -178,11 +178,11 @@ export function HomePage() {
         </div>
 
         <div className="mt-8 md:mt-12">
-          <SnapRow className="md:grid md:grid-cols-3 md:gap-px md:overflow-hidden md:rounded-2xl md:border md:border-ink/10 md:bg-ink/10">
+          <SnapRow bleed className="md:grid md:grid-cols-3 md:gap-px md:overflow-hidden md:rounded-2xl md:border md:border-ink/10 md:bg-ink/10">
             {publicSchedule.slice(0, 3).map((item) => (
               <div
                 key={item.id}
-                className="snap-item w-[78vw] max-w-xs rounded-2xl border border-ink/10 bg-white px-5 py-5 md:w-auto md:max-w-none md:rounded-none md:border-0 md:px-6 md:py-7"
+                className="snap-item w-[min(78vw,20rem)] shrink-0 rounded-2xl border border-ink/10 bg-white px-5 py-5 md:w-auto md:max-w-none md:shrink md:rounded-none md:border-0 md:px-6 md:py-7"
               >
                 <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-temple">{item.day}</p>
                 <p className="mt-2 font-display text-xl text-night sm:mt-3 sm:text-2xl">{item.title}</p>
@@ -195,8 +195,8 @@ export function HomePage() {
       </section>
 
       {/* Events — swipe on phone, grid on laptop */}
-      <section className="section-y bg-[#0c1826] text-white">
-        <div className="mx-auto max-w-7xl px-4 md:px-6">
+      <section className="section-y overflow-x-clip bg-[#0c1826] text-white">
+        <div className="mx-auto max-w-7xl overflow-x-clip px-4 md:px-6">
           <div className="flex flex-wrap items-end justify-between gap-3">
             <SectionHeading
               light
@@ -210,12 +210,12 @@ export function HomePage() {
           </div>
 
           <div className="mt-7 sm:mt-10">
-            <SnapRow className="md:grid md:grid-cols-2 md:gap-5">
+            <SnapRow bleed className="md:grid md:grid-cols-2 md:gap-5">
               {upcoming.slice(0, 2).map((event) => (
                 <Link
                   key={event.id}
                   to={`/events/${event.id}`}
-                  className="snap-item group relative h-[260px] w-[82vw] max-w-sm overflow-hidden rounded-2xl md:h-[340px] md:w-auto md:max-w-none"
+                  className="snap-item group relative h-[260px] w-[min(82vw,24rem)] shrink-0 overflow-hidden rounded-2xl md:h-[340px] md:w-auto md:max-w-none md:shrink"
                 >
                   <img
                     src={event.image}
@@ -320,10 +320,10 @@ export function HomePage() {
       </section>
 
       {/* Scripture */}
-      <section className="section-y bg-temple text-white">
-        <div className="mx-auto max-w-7xl px-4 md:px-6">
-          <div className="grid gap-8 md:grid-cols-[1.1fr_0.9fr] md:items-center md:gap-10">
-            <div>
+      <section className="section-y overflow-x-clip bg-temple text-white">
+        <div className="mx-auto max-w-7xl overflow-x-clip px-4 md:px-6">
+          <div className="grid min-w-0 gap-8 md:grid-cols-[1.1fr_0.9fr] md:items-center md:gap-10">
+            <div className="min-w-0">
               <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-marigold sm:text-xs sm:tracking-[0.28em]">
                 Scripture
               </p>
@@ -342,12 +342,12 @@ export function HomePage() {
                 </Button>
               </Link>
             </div>
-            <SnapRow className="md:grid md:grid-cols-2 md:gap-3">
+            <SnapRow bleed className="min-w-0 md:grid md:grid-cols-2 md:gap-3">
               {['Shri Raas', 'Shri Prakash', 'Shri Kalash', 'Meher Sagar'].map((label) => (
                 <Link
                   key={label}
                   to="/sermons"
-                  className="snap-item w-[70vw] max-w-[14rem] rounded-2xl border border-white/15 bg-white/10 px-4 py-5 md:w-auto md:max-w-none md:px-5 md:py-6"
+                  className="snap-item w-[min(70vw,14rem)] shrink-0 rounded-2xl border border-white/15 bg-white/10 px-4 py-5 md:w-auto md:max-w-none md:shrink md:px-5 md:py-6"
                 >
                   <p className="font-display text-lg sm:text-xl">{label}</p>
                   <p className="mt-1.5 text-sm text-white/70">Open in library</p>

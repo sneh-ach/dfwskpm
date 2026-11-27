@@ -180,7 +180,7 @@ export function AdminBilling() {
   }
 
   return (
-    <div className="pb-6">
+    <div className="min-w-0 overflow-x-clip pb-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
           <h1 className="font-display text-3xl text-white sm:text-4xl">Billing</h1>

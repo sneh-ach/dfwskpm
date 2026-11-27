@@ -194,7 +194,7 @@ export function AdminMemberLookup() {
   const showDetail = Boolean(selected && household)
 
   return (
-    <div className="pb-2">
+    <div className="min-w-0 overflow-x-clip pb-2">
       <div className={showDetail ? 'hidden lg:block' : ''}>
         <h1 className="font-display text-3xl text-white sm:text-4xl">Member lookup</h1>
         <p className="mt-1.5 max-w-2xl text-sm text-mist/70 sm:text-base">
@@ -218,8 +218,8 @@ export function AdminMemberLookup() {
         </p>
       </div>
 
-      <div className="mt-5 grid gap-5 lg:mt-6 lg:grid-cols-[minmax(0,340px)_1fr]">
-        <div className={showDetail ? 'hidden space-y-2 lg:block' : 'space-y-2'}>
+      <div className="mt-5 grid min-w-0 gap-5 lg:mt-6 lg:grid-cols-[minmax(0,340px)_minmax(0,1fr)]">
+        <div className={showDetail ? 'hidden min-w-0 space-y-2 lg:block' : 'min-w-0 space-y-2'}>
           {filtered.length === 0 && (
             <p className="rounded-xl border border-dashed border-white/15 px-4 py-8 text-center text-sm text-mist/55">
               No members match.

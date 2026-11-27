@@ -40,7 +40,7 @@ export function SocialConnect() {
             <p className="mt-3 max-w-md text-sm text-mist/80 sm:mt-5 sm:text-base md:text-lg">
               Festival photos, satsang reminders, and temple notes — follow the DFW Pranami family.
             </p>
-            <SnapRow className="mt-5 gap-2 md:mt-7 md:flex md:flex-wrap md:gap-2">
+            <SnapRow bleed className="mt-5 gap-2 md:mt-7 md:flex md:flex-wrap md:gap-2 md:overflow-visible">
               {links.map((link) => (
                 <a
                   key={link.label}

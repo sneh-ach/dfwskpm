@@ -83,8 +83,8 @@ export function AdminLayout() {
   }, [])
 
   return (
-    <div className="min-h-screen bg-night text-mist">
-      <div className="mx-auto flex max-w-[1400px]">
+    <div className="min-h-screen max-w-[100vw] overflow-x-clip bg-night text-mist">
+      <div className="mx-auto flex max-w-[1400px] min-w-0">
         <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col border-r border-white/10 p-5 lg:flex">
           <p className="text-xs uppercase tracking-[0.22em] text-marigold">Temple dashboard</p>
           <p className="mt-2 font-display text-xl text-white">DFWSKPM</p>
@@ -142,7 +142,7 @@ export function AdminLayout() {
           </div>
         </aside>
 
-        <div className="min-w-0 flex-1">
+        <div className="min-w-0 flex-1 overflow-x-clip">
           {/* Mobile top bar */}
           <div className="sticky top-0 z-30 border-b border-white/10 bg-night/95 px-3 py-2.5 backdrop-blur-xl lg:hidden pt-[max(0.65rem,env(safe-area-inset-top))]">
             <div className="flex items-center justify-between gap-3">
@@ -229,7 +229,7 @@ export function AdminLayout() {
             </div>
           )}
 
-          <div className="p-3 pb-[calc(5.25rem+env(safe-area-inset-bottom,0px))] sm:p-5 md:p-8 lg:pb-8">
+          <div className="min-w-0 p-3 pb-[calc(5.25rem+env(safe-area-inset-bottom,0px))] sm:p-5 md:p-8 lg:pb-8">
             <Outlet />
           </div>
 
