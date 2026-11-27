@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
-import { Link, useLocation } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import {
   BookOpen,
   CalendarDays,
@@ -13,6 +13,7 @@ import {
   Phone,
   Receipt,
   Users,
+  X,
 } from 'lucide-react'
 import { useAuthStore } from '../store/authStore'
 import { useContentStore } from '../store/contentStore'
@@ -39,17 +40,24 @@ export function MemberPage() {
   const markInvoicePaid = useContentStore((s) => s.markInvoicePaid)
   const addMemberRequest = useContentStore((s) => s.addMemberRequest)
   const location = useLocation()
-  const welcomeMessage =
-    (location.state as { message?: string } | null)?.message ||
-    ((location.state as { welcome?: boolean } | null)?.welcome
-      ? 'Welcome — your household is registered.'
-      : '')
+  const navigate = useNavigate()
+  const [welcomeBanner, setWelcomeBanner] = useState('')
   const [passwordMsg, setPasswordMsg] = useState('')
   const [passwordError, setPasswordError] = useState('')
 
   useEffect(() => {
     if (user?.householdId) void hydrateHousehold(user.householdId)
   }, [user?.householdId])
+
+  useEffect(() => {
+    const state = location.state as { message?: string; welcome?: boolean } | null
+    const msg =
+      state?.message || (state?.welcome ? 'Welcome — your household is registered.' : '')
+    if (!msg) return
+    setWelcomeBanner(msg)
+    // Clear sticky router state so the banner does not return on refresh/navigation
+    navigate('.', { replace: true, state: null })
+  }, [location.state, navigate])
 
   const household = useMemo(
     () => (user?.householdId ? households.find((h) => h.id === user.householdId) : undefined),
@@ -205,9 +213,17 @@ export function MemberPage() {
       </div>
 
       <div className="mx-auto max-w-7xl px-4 py-7 sm:py-10 md:px-6 md:py-14">
-        {welcomeMessage && (
-          <div className="mb-6 rounded-2xl border border-saffron/30 bg-saffron/10 p-4 text-sm text-night sm:mb-8 sm:p-5">
-            <p className="font-medium">{welcomeMessage}</p>
+        {welcomeBanner && (
+          <div className="mb-6 flex items-start justify-between gap-3 rounded-2xl border border-saffron/30 bg-saffron/10 p-4 text-sm text-night sm:mb-8 sm:p-5">
+            <p className="font-medium">{welcomeBanner}</p>
+            <button
+              type="button"
+              className="shrink-0 rounded-md p-1 text-night/60 hover:bg-black/5 hover:text-night"
+              aria-label="Dismiss"
+              onClick={() => setWelcomeBanner('')}
+            >
+              <X className="h-4 w-4" />
+            </button>
           </div>
         )}
         {!household && (

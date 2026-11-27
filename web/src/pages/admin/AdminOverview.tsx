@@ -31,7 +31,6 @@ export function AdminOverview() {
     households,
     invoices,
     announcements,
-    emailLogs,
     schedule,
   } = useContentStore()
   const user = useAuthStore((s) => s.currentUser)
@@ -45,7 +44,6 @@ export function AdminOverview() {
   const openAmount = openInvoices.reduce((s, i) => s + i.amount, 0)
   const openRequests = memberRequests.filter((r) => r.status === 'open')
   const unreadContact = contactMessages.filter((m) => !m.read)
-  const draftEmails = (emailLogs || []).filter((e) => e.status === 'draft').slice(0, 5)
   const people = households.reduce((sum, h) => sum + h.members.length, 0)
   const liveEvents = events.filter((e) => e.status === 'published').length
   const liveNews = news.filter((n) => n.status === 'published').length
@@ -80,13 +78,6 @@ export function AdminOverview() {
         detail: 'Public contact form',
         to: '/admin/messages',
         count: unreadContact.length,
-      })
-    if (draftEmails.length)
-      attention.push({
-        label: 'Email drafts ready',
-        detail: 'Welcome / review notices to send',
-        to: '/admin/email',
-        count: draftEmails.length,
       })
   }
 
